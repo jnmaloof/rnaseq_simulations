@@ -1,0 +1,132 @@
+---
+title: "Spen_rnaseq_simulation"
+author: "Julin Maloof"
+date: "November 29, 2015"
+output: html_document
+---
+
+I want to determine how well various aligners perform when mapping S. pennellii RNAseq reads to the Heinz genome.  The basic method will be to simulate reads from fasta files, map, and then compare results to reality.
+
+I will start just with S.pen but will move on to differential expression analysis between M82 and S.pen.
+
+I plan to compare
+
+* stampy
+* subread
+* star
+* bowtie
+
+## Simluate reads (simple version)
+
+Use the [Polyester package.](http://bioconductor.org/packages/release/bioc/vignettes/polyester/inst/doc/polyester.html)  Also see the [Polyester paper.](http://bioinformatics.oxfordjournals.org/content/31/17/2778)
+
+Installation.  Only needs to be run once per computer.
+```{r install_polyester, eval=FALSE}
+source("http://bioconductor.org/biocLite.R")
+biocLite("polyester")
+```
+
+Load Spen transcripts  
+Spen CDS fasta can be obtained from [SGN](ftp://ftp.solgenomics.net/genomes/Solanum_pennellii/annotations/)
+```{r load_Spen}
+library(polyester)
+library(Biostrings)
+setwd("~/Documents/Lab Notebook support/2015/rnaseq_simulations")
+pen.transcripts <-  readDNAStringSet("~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot.fa")
+head(pen.transcripts)
+names(pen.transcripts[1:10])
+```
+
+Reformat names to get rid of description and add Slyc reference
+```{r }
+orthologs <- read.delim("Ortho_v2.txt",header=FALSE) #From Tony Bolger
+head(orthologs)
+names(orthologs) <- c("PEN","LYC")
+orthologs$PEN <- sub("t","",orthologs$PEN)
+head(orthologs)
+orthologs$PEN.LYC <- paste(orthologs$PEN,orthologs$LYC,sep="_")
+names(pen.transcripts) <- substr(names(pen.transcripts),1,16)
+names(pen.transcripts) <- ifelse(!is.na(match(names(pen.transcripts),orthologs$PEN)),
+                           orthologs$PEN.LYC[match(names(pen.transcripts),orthologs$PEN)],
+                                 names(pen.transcripts))
+pen.transcripts
+```
+
+Lets limit ourselve to genes where orthology is clear:
+```{r reduce_data}
+pen.transcripts.small <- pen.transcripts[nchar(names(pen.transcripts))>16]
+writeXStringSet(pen.transcripts.small,file="~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot_orthlogs_only.fa")
+```
+
+
+Simulate PEN RNAseq reads
+```{r simulate_pen_1}
+#3 minutes for 1M reads
+#15 minutes for 5M reads
+system.time(
+simulate_experiment(fasta="~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot_orthlogs_only.fa",
+                    outdir="spen_sim_1",
+                    num_reps=1,
+                    readlen=45,
+                    #line below gives ~ 5M reads, scaled by transcript length
+                    reads_per_transcript = round(width(pen.transcripts.small) * 
+                                                   5e6/ sum(width(pen.transcripts.small) )),
+                    paired=FALSE,
+                    error_model="illumina5",
+                    bias="rnaf",
+                    transcriptid=names(pen.transcripts.small)
+                  )
+)
+
+```
+
+## Map with star
+
+### Installation (only needs to be done once)
+
+    brew install rna-star
+    brew install gcc5 
+    
+### Create genome file
+Only needs to be done once  
+This is a shell command  
+Takes about 25 minutes  
+```{r eval=FALSE, engine='bash'}
+STAR --runThreadN 6 --runMode genomeGenerate --genomeDir ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_genome --genomeFastaFiles ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa --sjdbGTFfile ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_gene_models.gff3 --sjdbGTFtagExonParentTranscript Parent --sjdbGTFtagExonParentGene Parent
+```
+
+### Create parameters files
+```{r eval=FALSE, engine='bash'}
+cat > STAR.params.1
+runThreadN 2
+genomeDir ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_genome
+twopassMode Basic
+outSAMtype BAM SortedByCoordinate
+outSAMunmapped Within
+outFilterMismatchNoverLmax 0.1
+outFilterIntronMotifs RemoveNoncanonical
+quantMode GeneCounts
+
+```
+
+### Run it!
+```{r eval=FALSE, engine='bash'}
+    cd spen_sim_1
+    STAR --parametersFiles ../STAR.params.1 --readFilesIn ./sample_01.fasta --outFileNamePrefix STAR_1 
+```
+
+## Evaluate results
+
+We want to do:
+
+* correlation between known counts and found counts
+* how many reads map to the wrong gene?
+* how many reads do not map?
+* something about splice junctions
+
+### Correlation
+```{r}
+known.counts <- read.delim("spen_sim_1/sim_tx_info.txt")
+head(known.counts)
+```
+
