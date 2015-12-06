@@ -47,7 +47,7 @@ head(orthologs)
 orthologs$PEN.LYC <- paste(orthologs$PEN,orthologs$LYC,sep="_")
 names(pen.transcripts) <- substr(names(pen.transcripts),1,16)
 names(pen.transcripts) <- ifelse(!is.na(match(names(pen.transcripts),orthologs$PEN)),
-                           orthologs$PEN.LYC[match(names(pen.transcripts),orthologs$PEN)],
+                                 orthologs$PEN.LYC[match(names(pen.transcripts),orthologs$PEN)],
                                  names(pen.transcripts))
 pen.transcripts
 ```
@@ -64,18 +64,18 @@ Simulate PEN RNAseq reads
 #3 minutes for 1M reads
 #15 minutes for 5M reads
 system.time(
-simulate_experiment(fasta="~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot_orthlogs_only.fa",
-                    outdir="spen_sim_1",
-                    num_reps=1,
-                    readlen=45,
-                    #line below gives ~ 5M reads, scaled by transcript length
-                    reads_per_transcript = round(width(pen.transcripts.small) * 
-                                                   5e6/ sum(width(pen.transcripts.small) )),
-                    paired=FALSE,
-                    error_model="illumina5",
-                    bias="rnaf",
-                    transcriptid=names(pen.transcripts.small)
-                  )
+  simulate_experiment(fasta="~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot_orthlogs_only.fa",
+                      outdir="spen_sim_1",
+                      num_reps=1,
+                      readlen=45,
+                      #line below gives ~ 5M reads, scaled by transcript length
+                      reads_per_transcript = round(width(pen.transcripts.small) * 
+                                                     5e6/ sum(width(pen.transcripts.small) )),
+                      paired=FALSE,
+                      error_model="illumina5",
+                      bias="rnaf",
+                      transcriptid=names(pen.transcripts.small)
+  )
 )
 
 ```
@@ -84,9 +84,9 @@ simulate_experiment(fasta="~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot_orth
 
 ### Installation (only needs to be done once)
 
-    brew install rna-star
-    brew install gcc5 
-    
+brew install rna-star
+brew install gcc5 
+
 ### Create genome file
 Only needs to be done once  
 This is a shell command  
@@ -98,8 +98,8 @@ STAR --runThreadN 6 --runMode genomeGenerate --genomeDir ~/Sequences/ref_genomes
 ### Create parameters files
 ```{r eval=FALSE, engine='bash'}
 cat > STAR.params.1
-runThreadN 2
-genomeDir ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_genome
+runThreadN 6
+genomeDir /Network/Servers/avalanche.plb.ucdavis.edu/Volumes/Mammoth/Users/jmaloof/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_genome
 twopassMode Basic
 outSAMtype BAM SortedByCoordinate
 outSAMunmapped Within
@@ -111,8 +111,8 @@ quantMode GeneCounts
 
 ### Run it!
 ```{r eval=FALSE, engine='bash'}
-    cd spen_sim_1
-    STAR --parametersFiles ../STAR.params.1 --readFilesIn ./sample_01.fasta --outFileNamePrefix STAR_1 
+cd spen_sim_1
+STAR --parametersFiles ../STAR.params.1 --readFilesIn ./sample_01.fasta --outFileNamePrefix STAR_1 
 ```
 
 ## Evaluate results
@@ -124,9 +124,42 @@ We want to do:
 * how many reads do not map?
 * something about splice junctions
 
-### Correlation
+### calculate known counts
+
+Memory-friendly way to count gene occurences...
+2-3 minutes for 5M reads
 ```{r}
-known.counts <- read.delim("spen_sim_1/sim_tx_info.txt")
-head(known.counts)
+system.time({
+  known_counts <- list()
+  reads <- file("spen_sim_1/sample_01.fasta")
+  open(reads)
+  repeat {
+    lines <- readLines(reads,n=100000)
+    genes <- as.data.frame(
+      table(
+        regmatches(lines,regexpr("Sopen.+Solyc[0-9]{2}g[0-9\\.]+",lines)),
+        dnn="id"),
+      responseName="count",
+      stringsAsFactors = FALSE)
+    matches <- genes$id %in% names(known_counts)
+    known_counts[genes$id[!matches]] <- 0 #initiate an entry for new genes
+    known_counts[genes$id] <- unlist(known_counts[genes$id]) + genes$count
+    if(length(lines)==0) break
+  }
+  close(reads)    
+})
+```
+
+```{r}
+library(Biostrings)
+system.time({
+  reads <- readreadDNAStringSet("spen_sim_1/sample_01.fasta")
+    genes <- as.data.frame(
+      table(
+        regmatches(names(reads),regexpr("Sopen.+Solyc[0-9]{2}g[0-9\\.]+",lines)),
+        dnn="id"),
+      responseName="count",
+      stringsAsFactors = FALSE)
+})
 ```
 
