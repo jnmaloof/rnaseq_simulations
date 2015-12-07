@@ -92,7 +92,7 @@ Only needs to be done once
 This is a shell command  
 Takes about 25 minutes  
 ```{r eval=FALSE, engine='bash'}
-STAR --runThreadN 6 --runMode genomeGenerate --genomeDir ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_genome --genomeFastaFiles ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa --sjdbGTFfile ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_gene_models.gff3 --sjdbGTFtagExonParentTranscript Parent --sjdbGTFtagExonParentGene Parent
+STAR --runThreadN 6 --runMode genomeGenerate --genomeDir ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_genome --genomeFastaFiles ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa --sjdbGTFfile ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_gene_models.gff3 --sjdbGTFtagExonParentTranscript Parent
 ```
 
 ### Create parameters files
@@ -126,6 +126,30 @@ We want to do:
 
 ### calculate known counts
 
+A few options are presented below
+
+use external python script
+```{r}
+known_counts <- read.table(pipe("./CountGene.py spen_sim_1/sample_01.fasta"),col.names=c("id","count"))
+summary(known_counts)
+```
+
+
+If you are not concerned about memory usage:
+(5M reads uses 4GB)
+```{r}
+library(Biostrings)
+system.time({
+  reads <- readDNAStringSet("spen_sim_1/sample_01.fasta")
+    known_counts <- as.data.frame(
+      table(
+        regmatches(names(reads),regexpr("Sopen.+Solyc[0-9]{2}g[0-9\\.]+",names(reads))),
+        dnn="id"),
+      responseName="count",
+      stringsAsFactors = FALSE)
+})
+```
+
 Memory-friendly way to count gene occurences...
 2-3 minutes for 5M reads
 ```{r}
@@ -150,16 +174,4 @@ system.time({
 })
 ```
 
-```{r}
-library(Biostrings)
-system.time({
-  reads <- readreadDNAStringSet("spen_sim_1/sample_01.fasta")
-    genes <- as.data.frame(
-      table(
-        regmatches(names(reads),regexpr("Sopen.+Solyc[0-9]{2}g[0-9\\.]+",lines)),
-        dnn="id"),
-      responseName="count",
-      stringsAsFactors = FALSE)
-})
-```
 
