@@ -111,6 +111,9 @@ quantMode GeneCounts
 ```
 
 ### Run it!
+
+__note__ I needed to use STAR2.5 for this to work.
+
 ```{r eval=FALSE, engine='bash'}
 cd spen_sim_1
 STAR --parametersFiles ../STAR.params.1 --readFilesIn ./sample_01.fasta --outFileNamePrefix STAR_1 
