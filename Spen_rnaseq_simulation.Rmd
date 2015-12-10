@@ -134,8 +134,9 @@ A few options are presented below
 
 use external python script
 ```{r}
-known_counts <- read.table(pipe("./CountGene.py spen_sim_1/sample_01.fasta"),col.names=c("id","count"))
+known_counts <- read.table(pipe("./CountGene.py spen_sim_1/sample_01.fasta"),col.names=c("id","count"),stringsAsFactors = FALSE)
 summary(known_counts)
+head(known_counts)
 ```
 
 
@@ -178,4 +179,24 @@ system.time({
 })
 ```
 
+### Load in mapped counts
+```{r }
+mapped_counts <- read.delim("spen_sim_1/STAR_1ReadsPerGene.out.tab",header = FALSE, stringsAsFactors = FALSE)
+head(mapped_counts)
+mapped_counts <- mapped_counts[,1:2] # 3 and 4 are directional counts which we don't care about
+colnames(mapped_counts) <- c("ID","count")
+mapped_counts$ID <- sub("gene:","",mapped_counts$ID,fixed=TRUE)
+```
+
+### Comparison
+```{r}
+#check that I can use substring
+unique(nchar(known_counts$id)) #all are the same length
+known_counts$lyc_id <- substr(known_counts$id,18,33)
+head(known_counts)
+count_comparison <- merge(known_counts,mapped_counts,by.x="lyc_id",by.y="ID",suffixes=c(".known",".mapped"))
+head(count_comparison)
+cor(count_comparison$count.known,count_comparison$count.mapped)
+plot(count_comparison$count.known,count_comparison$count.mapped)
+```
 
