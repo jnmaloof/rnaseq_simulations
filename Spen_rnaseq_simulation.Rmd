@@ -323,13 +323,12 @@ lapply(reads_zero_1hit,head,10)
 
 ### Create parameters files
 ```{r eval=FALSE, engine='bash'}
-  cat > STAR.params.3
+cat > STAR.params.3
 runThreadN 12
 genomeDir /Network/Servers/avalanche.plb.ucdavis.edu/Volumes/Mammoth/Users/jmaloof/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_genome
 twopassMode Basic
 outSAMtype BAM SortedByCoordinate
 outSAMunmapped Within
-outFilterMismatchNoverLmax 0.1
 quantMode GeneCounts
 ```
 
@@ -339,13 +338,13 @@ __note__ I needed to use STAR2.5 for this to work.
 
 ```{r eval=FALSE, engine='bash'}
 cd spen_sim_1
-STAR --parametersFiles ../STAR.params.3 --readFilesIn ./sample_01_renamed.fasta --outFileNamePrefix STAR_2 
-samtools index STAR_2Aligned.sortedByCoord.out.bam
+STAR --parametersFiles ../STAR.params.3 --readFilesIn ./sample_01_renamed.fasta --outFileNamePrefix STAR_3 
+samtools index STAR_3Aligned.sortedByCoord.out.bam
 ```
 
 ### Load in mapped counts
 ```{r }
-mapped_counts.3 <- read.delim("spen_sim_1/STAR_2ReadsPerGene.out.tab",header = FALSE, stringsAsFactors = FALSE)
+mapped_counts.3 <- read.delim("spen_sim_1/STAR_3ReadsPerGene.out.tab",header = FALSE, stringsAsFactors = FALSE)
 head(mapped_counts.3)
 mapped_counts.3 <- mapped_counts.3[,1:2] # 3 and 4 are directional counts which we don't care about
 colnames(mapped_counts.3) <- c("ID","count")
