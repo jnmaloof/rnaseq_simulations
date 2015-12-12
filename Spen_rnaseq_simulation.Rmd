@@ -77,7 +77,7 @@ system.time(
                       transcriptid=names(pen.transcripts.small)
   )
 )
-
+system("sed 's!/!;!' spen_sim_1/sample_01.fasta > spen_sim_1/sample_01_renamed.fasta") #this allows original gene_names to be kept
 ```
 
 ## Map with star
@@ -99,7 +99,7 @@ STAR --runThreadN 6 --runMode genomeGenerate --genomeDir ~/Sequences/ref_genomes
 ### Create parameters files
 ```{r eval=FALSE, engine='bash'}
 cat > STAR.params.1
-runThreadN 6
+runThreadN 12
 genomeDir /Network/Servers/avalanche.plb.ucdavis.edu/Volumes/Mammoth/Users/jmaloof/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_genome
 twopassMode Basic
 outSAMtype BAM SortedByCoordinate
@@ -116,7 +116,8 @@ __note__ I needed to use STAR2.5 for this to work.
 
 ```{r eval=FALSE, engine='bash'}
 cd spen_sim_1
-STAR --parametersFiles ../STAR.params.1 --readFilesIn ./sample_01.fasta --outFileNamePrefix STAR_1 
+STAR --parametersFiles ../STAR.params.1 --readFilesIn ./sample_01_renamed.fasta --outFileNamePrefix STAR_1 
+samtools index STAR_1Aligned.sortedByCoord.out.bam
 ```
 
 ## Evaluate results
@@ -199,4 +200,28 @@ head(count_comparison)
 cor(count_comparison$count.known,count_comparison$count.mapped)
 plot(count_comparison$count.known,count_comparison$count.mapped)
 ```
+Not so good!
+
+how much is chromosome zero?
+```{r}
+count_comparison$chrom <- substr(count_comparison$lyc_id,6,7)
+head(count_comparison)
+library(ggplot2)
+qplot(x=count.known,y=count.mapped,data=count_comparison) + facet_wrap(~ chrom)
+```
+Not limited to chrom zero
+
+Investigate...
+Lets take a look at the bam file and extract reads from a few genes with 0 mapped reads.  Skip chromosome 1
+```{r}
+head(count_comparison[count_comparison$chrom=="01" & count_comparison$count.mapped==0,],n=20)
+library(Rsamtools)
+reads <- scanBam(file="spen_sim_1/STAR_1Aligned.sortedByCoord.out.bam")[[1]]
+#note: DO NOT convert reads to a data frame.  Uses lots of memory.
+lapply(reads, head)
+#pull the reads that should have mapped out into new list
+zero
+```
+
+
 
