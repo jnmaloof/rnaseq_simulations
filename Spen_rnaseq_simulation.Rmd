@@ -54,15 +54,18 @@ names(pen.transcripts) <- ifelse(!is.na(match(names(pen.transcripts),orthologs$P
                                  orthologs$PEN.LYC[match(names(pen.transcripts),orthologs$PEN)],
                                  names(pen.transcripts))
 pen.transcripts
-#for lyc transcripts, just trim the names
+
 names(lyc.transcripts) <- substr(names(lyc.transcripts),1,18)
+names(lyc.transcripts) <- ifelse(!is.na(match(names(lyc.transcripts),orthologs$LYC)),
+                                 orthologs$PEN.LYC[match(names(lyc.transcripts),orthologs$LYC)],
+                                 names(lyc.transcripts))
 ```
 
-Lets limit ourselve to genes where orthology is clear:
+Lets limit ourselves to genes where orthology is clear:
 ```{r reduce_data}
 pen.transcripts.small <- pen.transcripts[nchar(names(pen.transcripts))>16]
 writeXStringSet(pen.transcripts.small,file="~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot_orthlogs_only.fa")
-lyc.transcripts.small <- lyc.transcripts[names(lyc.transcripts) %in% orthologs$LYC]
+lyc.transcripts.small <- lyc.transcripts[nchar(names(lyc.transcripts)) > 18]
 writeXStringSet(lyc.transcripts.small,file="~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.pen.orthologs.only.fasta")
 ```
 
@@ -82,7 +85,6 @@ system.time(
                       paired=FALSE,
                       error_model="illumina5",
                       bias="rnaf",
-                      transcriptid=names(pen.transcripts.small)
   )
 )
 system("sed 's!/!;!' spen_sim_1/sample_01.fasta > spen_sim_1/sample_01_renamed.fasta") #this allows original gene_names to be kept
@@ -101,7 +103,6 @@ system.time(
                       paired=FALSE,
                       error_model="illumina5",
                       bias="rnaf",
-                      transcriptid=orthologs$PEN.LYC[match(names(lyc.transcripts.small),orthologs$LYC)]
   )
 )
 system("sed 's!/!;!' slyc_sim_1/sample_01.fasta > slyc_sim_1/sample_01_renamed.fasta") #this allows original gene_names to be kept
