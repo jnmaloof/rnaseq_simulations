@@ -84,10 +84,12 @@ system.time(
                                                      5e6/ sum(width(pen.transcripts.small) )),
                       paired=FALSE,
                       error_model="illumina5",
-                      bias="rnaf",
+                      bias="rnaf"
   )
 )
 system("sed 's!/!;!' spen_sim_1/sample_01.fasta > spen_sim_1/sample_01_renamed.fasta") #this allows original gene_names to be kept
+system("rm spen_sim_1/sample_01.fasta")
+system("gzip spen_sim_1/sample_01_renamed.fasta")
 ```
 
 Simulate LYC RNAseq reads
@@ -102,10 +104,12 @@ system.time(
                                                      5e6/ sum(width(pen.transcripts.small) )),
                       paired=FALSE,
                       error_model="illumina5",
-                      bias="rnaf",
+                      bias="rnaf"
   )
 )
 system("sed 's!/!;!' slyc_sim_1/sample_01.fasta > slyc_sim_1/sample_01_renamed.fasta") #this allows original gene_names to be kept
+system("rm slyc_sim_1/sample_01.fasta")
+system("gzip slyc_sim_1/sample_01_renamed.fasta")
 ```
 
 ## Map with star
@@ -144,10 +148,19 @@ __note__ I needed to use STAR2.5 for this to work.
 
 ```{r eval=FALSE, engine='bash'}
 cd spen_sim_1
-STAR --parametersFiles ../STAR.params.1 --readFilesIn ./sample_01_renamed.fasta --outFileNamePrefix STAR_1 
+STAR --parametersFiles ../STAR.params.1 --readFilesIn ./sample_01_renamed.fasta.gz --readFilesCommand zcat --outFileNamePrefix STAR_1 
 samtools index STAR_1Aligned.sortedByCoord.out.bam
 ```
 
+### Run it!
+
+__note__ I needed to use STAR2.5 for this to work.
+
+```{r eval=FALSE, engine='bash'}
+cd ../slyc_sim_1
+STAR --parametersFiles ../STAR.params.3 --readFilesIn ./sample_01_renamed.fasta.gz --readFilesCommand zcat --outFileNamePrefix STAR_1 
+samtools index STAR_1Aligned.sortedByCoord.out.bam
+```
 ## Evaluate results
 
 We want to do:
@@ -286,7 +299,7 @@ __note__ I needed to use STAR2.5 for this to work.
 
 ```{r eval=FALSE, engine='bash'}
 cd spen_sim_1
-STAR --parametersFiles ../STAR.params.2 --readFilesIn ./sample_01_renamed.fasta --outFileNamePrefix STAR_2 
+STAR --parametersFiles ../STAR.params.2 --readFilesIn ./sample_01_renamed.fasta.gz --readFilesCommand zcat --outFileNamePrefix STAR_2 
 samtools index STAR_2Aligned.sortedByCoord.out.bam
 ```
 
@@ -366,7 +379,7 @@ __note__ I needed to use STAR2.5 for this to work.
 
 ```{r eval=FALSE, engine='bash'}
 cd spen_sim_1
-STAR --parametersFiles ../STAR.params.3 --readFilesIn ./sample_01_renamed.fasta --outFileNamePrefix STAR_3 
+STAR --parametersFiles ../STAR.params.3 --readFilesIn ./sample_01_renamed.fasta.gz --readFilesCommand zcat --outFileNamePrefix STAR_3 
 samtools index STAR_3Aligned.sortedByCoord.out.bam
 ```
 
