@@ -4,7 +4,7 @@
 #Julin Maloof
 #Dec 6, 2015
 
-import sys, re
+import sys, re, gzip
 
 from collections import Counter
 
