@@ -150,7 +150,7 @@ RunStar <- function(fasta, prefix, param.file = "../STAR.params.royce.1", args =
   system(paste("STAR", 
                "--parametersFiles", param.file,
                "--readFilesIn", fasta,
-               ifelse(grepl("\\.gz$",fasta),"--readFilesCommand zcat",""),
+               ifelse(grepl("\\.gz$",fasta),"--readFilesCommand 'gunzip -c'",""),
                "--outFileNamePrefix", prefix,
                "--twopassMode", twopassMode,
                "--runThreadN",n,
@@ -163,7 +163,7 @@ RunStar <- function(fasta, prefix, param.file = "../STAR.params.royce.1", args =
 ### Run it!
 ```{r, eval=FALSE}
 RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="spen_sim_1",n=2)
-RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="slyc_sim_1")
+RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="slyc_sim_1",n=2)
 ```
 __note__ I needed to use STAR2.5 for this to work.
 
