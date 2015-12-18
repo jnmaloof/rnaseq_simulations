@@ -130,36 +130,37 @@ STAR --runThreadN 6 --runMode genomeGenerate --genomeDir ~/Sequences/ref_genomes
 ### Create parameters files
 ```{r eval=FALSE, engine='bash'}
 cat > STAR.params.1
-runThreadN 12
 genomeDir /Network/Servers/avalanche.plb.ucdavis.edu/Volumes/Mammoth/Users/jmaloof/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_genome
-twopassMode Basic
 outSAMtype BAM SortedByCoordinate
 outSAMunmapped Within
-outFilterMismatchNoverLmax 0.1
-outFilterIntronMotifs RemoveNoncanonical
 quantMode GeneCounts
-
 ```
+
+```{r create runStar}
+RunStar <- function(fasta, prefix, param.file = "../STAR.params.1", args = "", dir =".", twopassMode = "Basic", n=12) {
+  old.dir <- getwd()
+  setwd(dir)
+  system(paste("STAR", 
+               "--parametersFiles", param.file,
+               "--readFilesIn", fasta,
+               ifelse(grepl("\\.gz$",fasta),"--readFilesCommand zcat",""),
+               "--outFileNamePrefix", prefix,
+               "--twopassMode", twopassMode,
+               "--runThreadN",n,
+               args))
+  system(paste("samtools index ",prefix,"Aligned.sortedByCoord.out.bam",sep=""))
+  setwd(old.dir)
+}
+```
+
 
 ### Run it!
-
+```{r, eval=FALSE}
+RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="spen_sim_1")
+RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="slyc_sim_1")
+```
 __note__ I needed to use STAR2.5 for this to work.
 
-```{r eval=FALSE, engine='bash'}
-cd spen_sim_1
-STAR --parametersFiles ../STAR.params.1 --readFilesIn ./sample_01_renamed.fasta.gz --readFilesCommand zcat --outFileNamePrefix STAR_1 
-samtools index STAR_1Aligned.sortedByCoord.out.bam
-```
-
-### Run it!
-
-__note__ I needed to use STAR2.5 for this to work.
-
-```{r eval=FALSE, engine='bash'}
-cd ../slyc_sim_1
-STAR --parametersFiles ../STAR.params.3 --readFilesIn ./sample_01_renamed.fasta.gz --readFilesCommand zcat --outFileNamePrefix STAR_1 
-samtools index STAR_1Aligned.sortedByCoord.out.bam
-```
 ## Evaluate results
 
 We want to do:
@@ -176,11 +177,9 @@ A few options are presented below
 use external python script
 ```{r}
 pen_known_counts <- read.table(pipe("./CountGene.py spen_sim_1/sample_01.fasta.gz"),col.names=c("id","count"),stringsAsFactors = FALSE)
-summary(pen_known_counts)
 head(pen_known_counts)
 
 lyc_known_counts <- read.table(pipe("./CountGene.py slyc_sim_1/sample_01.fasta.gz"),col.names=c("id","count"),stringsAsFactors = FALSE)
-summary(lyc_known_counts)
 head(lyc_known_counts)
 ```
 
