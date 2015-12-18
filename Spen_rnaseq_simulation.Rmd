@@ -129,15 +129,22 @@ STAR --runThreadN 6 --runMode genomeGenerate --genomeDir ~/Sequences/ref_genomes
 
 ### Create parameters files
 ```{r eval=FALSE, engine='bash'}
-cat > STAR.params.1
+cat > STAR.params.whitney.1
 genomeDir /Network/Servers/avalanche.plb.ucdavis.edu/Volumes/Mammoth/Users/jmaloof/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_genome
 outSAMtype BAM SortedByCoordinate
 outSAMunmapped Within
 quantMode GeneCounts
+
+cat > STAR.params.royce.1
+genomeDir /Users/jmaloof/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_genome
+outSAMtype BAM SortedByCoordinate
+outSAMunmapped Within
+quantMode GeneCounts
+
 ```
 
 ```{r create runStar}
-RunStar <- function(fasta, prefix, param.file = "../STAR.params.1", args = "", dir =".", twopassMode = "Basic", n=12) {
+RunStar <- function(fasta, prefix, param.file = "../STAR.params.royce.1", args = "", dir =".", twopassMode = "Basic", n=12) {
   old.dir <- getwd()
   setwd(dir)
   system(paste("STAR", 
@@ -153,10 +160,9 @@ RunStar <- function(fasta, prefix, param.file = "../STAR.params.1", args = "", d
 }
 ```
 
-
 ### Run it!
 ```{r, eval=FALSE}
-RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="spen_sim_1")
+RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="spen_sim_1",n=2)
 RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="slyc_sim_1")
 ```
 __note__ I needed to use STAR2.5 for this to work.
