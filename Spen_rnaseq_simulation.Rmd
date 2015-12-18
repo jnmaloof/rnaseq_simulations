@@ -69,7 +69,6 @@ lyc.transcripts.small <- lyc.transcripts[nchar(names(lyc.transcripts)) > 18]
 writeXStringSet(lyc.transcripts.small,file="~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.pen.orthologs.only.fasta")
 ```
 
-
 Simulate PEN RNAseq reads
 ```{r simulate_pen_1}
 #3 minutes for 1M reads
@@ -130,37 +129,44 @@ STAR --runThreadN 6 --runMode genomeGenerate --genomeDir ~/Sequences/ref_genomes
 
 ### Create parameters files
 ```{r eval=FALSE, engine='bash'}
-cat > STAR.params.1
-runThreadN 12
+cat > STAR.params.whitney.1
 genomeDir /Network/Servers/avalanche.plb.ucdavis.edu/Volumes/Mammoth/Users/jmaloof/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_genome
-twopassMode Basic
 outSAMtype BAM SortedByCoordinate
 outSAMunmapped Within
-outFilterMismatchNoverLmax 0.1
-outFilterIntronMotifs RemoveNoncanonical
+quantMode GeneCounts
+
+cat > STAR.params.royce.1
+genomeDir /Users/jmaloof/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_genome
+outSAMtype BAM SortedByCoordinate
+outSAMunmapped Within
 quantMode GeneCounts
 
 ```
 
-### Run it!
-
-__note__ I needed to use STAR2.5 for this to work.
-
-```{r eval=FALSE, engine='bash'}
-cd spen_sim_1
-STAR --parametersFiles ../STAR.params.1 --readFilesIn ./sample_01_renamed.fasta.gz --readFilesCommand zcat --outFileNamePrefix STAR_1 
-samtools index STAR_1Aligned.sortedByCoord.out.bam
+```{r create runStar}
+RunStar <- function(fasta, prefix, param.file = "../STAR.params.royce.1", args = "", dir =".", twopassMode = "Basic", n=12) {
+  old.dir <- getwd()
+  setwd(dir)
+  system(paste("STAR", 
+               "--parametersFiles", param.file,
+               "--readFilesIn", fasta,
+               ifelse(grepl("\\.gz$",fasta),"--readFilesCommand 'gunzip -c'",""),
+               "--outFileNamePrefix", prefix,
+               "--twopassMode", twopassMode,
+               "--runThreadN",n,
+               args))
+  system(paste("samtools index ",prefix,"Aligned.sortedByCoord.out.bam",sep=""))
+  setwd(old.dir)
+}
 ```
 
 ### Run it!
-
+```{r, eval=FALSE}
+RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="spen_sim_1",n=2)
+RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="slyc_sim_1",n=2)
+```
 __note__ I needed to use STAR2.5 for this to work.
 
-```{r eval=FALSE, engine='bash'}
-cd ../slyc_sim_1
-STAR --parametersFiles ../STAR.params.3 --readFilesIn ./sample_01_renamed.fasta.gz --readFilesCommand zcat --outFileNamePrefix STAR_1 
-samtools index STAR_1Aligned.sortedByCoord.out.bam
-```
 ## Evaluate results
 
 We want to do:
@@ -176,9 +182,11 @@ A few options are presented below
 
 use external python script
 ```{r}
-known_counts <- read.table(pipe("./CountGene.py spen_sim_1/sample_01.fasta"),col.names=c("id","count"),stringsAsFactors = FALSE)
-summary(known_counts)
-head(known_counts)
+pen_known_counts <- read.table(pipe("./CountGene.py spen_sim_1/sample_01.fasta.gz"),col.names=c("id","count"),stringsAsFactors = FALSE)
+head(pen_known_counts)
+
+lyc_known_counts <- read.table(pipe("./CountGene.py slyc_sim_1/sample_01.fasta.gz"),col.names=c("id","count"),stringsAsFactors = FALSE)
+head(lyc_known_counts)
 ```
 
 
@@ -188,7 +196,7 @@ If you are not concerned about memory usage:
 library(Biostrings)
 system.time({
   reads <- readDNAStringSet("spen_sim_1/sample_01.fasta")
-    known_counts <- as.data.frame(
+    pen_known_counts <- as.data.frame(
       table(
         regmatches(names(reads),regexpr("Sopen.+Solyc[0-9]{2}g[0-9\\.]+",names(reads))),
         dnn="id"),
@@ -201,7 +209,7 @@ Memory-friendly way to count gene occurences...
 2-3 minutes for 5M reads
 ```{r}
 system.time({
-  known_counts <- list()
+  pen_known_counts <- list()
   reads <- file("spen_sim_1/sample_01.fasta")
   open(reads)
   repeat {
@@ -212,9 +220,9 @@ system.time({
         dnn="id"),
       responseName="count",
       stringsAsFactors = FALSE)
-    matches <- genes$id %in% names(known_counts)
-    known_counts[genes$id[!matches]] <- 0 #initiate an entry for new genes
-    known_counts[genes$id] <- unlist(known_counts[genes$id]) + genes$count
+    matches <- genes$id %in% names(pen_known_counts)
+    pen_known_counts[genes$id[!matches]] <- 0 #initiate an entry for new genes
+    pen_known_counts[genes$id] <- unlist(pen_known_counts[genes$id]) + genes$count
     if(length(lines)==0) break
   }
   close(reads)    
@@ -223,39 +231,58 @@ system.time({
 
 ### Load in mapped counts
 ```{r }
-mapped_counts <- read.delim("spen_sim_1/STAR_1ReadsPerGene.out.tab",header = FALSE, stringsAsFactors = FALSE)
-head(mapped_counts)
-mapped_counts <- mapped_counts[,1:2] # 3 and 4 are directional counts which we don't care about
-colnames(mapped_counts) <- c("ID","count")
-mapped_counts$ID <- sub("gene:","",mapped_counts$ID,fixed=TRUE)
+pen_mapped_counts <- read.delim("spen_sim_1/STAR_1ReadsPerGene.out.tab",header = FALSE, stringsAsFactors = FALSE)
+head(pen_mapped_counts)
+pen_mapped_counts <- pen_mapped_counts[,1:2] # 3 and 4 are directional counts which we don't care about
+colnames(pen_mapped_counts) <- c("ID","count")
+pen_mapped_counts$ID <- sub("gene:","",pen_mapped_counts$ID,fixed=TRUE)
+
+lyc_mapped_counts <- read.delim("slyc_sim_1/STAR_1ReadsPerGene.out.tab",header = FALSE, stringsAsFactors = FALSE)
+head(lyc_mapped_counts)
+lyc_mapped_counts <- lyc_mapped_counts[,1:2] # 3 and 4 are directional counts which we don't care about
+colnames(lyc_mapped_counts) <- c("ID","count")
+lyc_mapped_counts$ID <- sub("gene:","",lyc_mapped_counts$ID,fixed=TRUE)
 ```
 
 ### Comparison
 ```{r}
 #check that I can use substring
-unique(nchar(known_counts$id)) #all are the same length
-known_counts$lyc_id <- substr(known_counts$id,18,33)
-head(known_counts)
-count_comparison <- merge(known_counts,mapped_counts,by.x="lyc_id",by.y="ID",suffixes=c(".known",".mapped"))
-head(count_comparison)
-cor(count_comparison$count.known,count_comparison$count.mapped)
-plot(count_comparison$count.known,count_comparison$count.mapped)
+unique(nchar(pen_known_counts$id)) #all are the same length
+pen_known_counts$lyc_id <- substr(pen_known_counts$id,18,33)
+head(pen_known_counts)
+pen_count_comparison <- merge(pen_known_counts,pen_mapped_counts,by.x="lyc_id",by.y="ID",suffixes=c(".known",".mapped"))
+head(pen_count_comparison)
+cor(pen_count_comparison$count.known,pen_count_comparison$count.mapped)
+plot(pen_count_comparison$count.known,pen_count_comparison$count.mapped,main="S. pennellii")
+
+unique(nchar(lyc_known_counts$id)) #all are the same length
+lyc_known_counts$lyc_id <- substr(lyc_known_counts$id,18,33)
+head(lyc_known_counts)
+lyc_count_comparison <- merge(lyc_known_counts,lyc_mapped_counts,by.x="lyc_id",by.y="ID",suffixes=c(".known",".mapped"))
+head(lyc_count_comparison)
+cor(lyc_count_comparison$count.known,lyc_count_comparison$count.mapped)
+plot(lyc_count_comparison$count.known,lyc_count_comparison$count.mapped,main="S. lycopersicum")
 ```
-Not so good!
+Lyc much better than Pen.  Bummer!
 
 how much is chromosome zero?
 ```{r}
-count_comparison$chrom <- substr(count_comparison$lyc_id,6,7)
-head(count_comparison)
+pen_count_comparison$chrom <- substr(pen_count_comparison$lyc_id,6,7)
+head(pen_count_comparison)
 library(ggplot2)
-qplot(x=count.known,y=count.mapped,data=count_comparison) + facet_wrap(~ chrom)
+qplot(x=count.known,y=count.mapped,data=pen_count_comparison) + facet_wrap(~ chrom)
+
+lyc_count_comparison$chrom <- substr(lyc_count_comparison$lyc_id,6,7)
+head(lyc_count_comparison)
+library(ggplot2)
+qplot(x=count.known,y=count.mapped,data=lyc_count_comparison) + facet_wrap(~ chrom)
 ```
 Not limited to chrom zero
 
 Investigate...
 Lets take a look at the bam file and extract reads from a few genes with 0 mapped reads.  Skip chromosome 0
 ```{r}
-head(count_comparison[count_comparison$chrom=="01" & count_comparison$count.mapped==0,],n=20)
+head(pen_count_comparison[pen_count_comparison$chrom=="01" & pen_count_comparison$count.mapped==0,],n=20)
 library(Rsamtools)
 reads <- scanBam(file="spen_sim_1/STAR_1Aligned.sortedByCoord.out.bam",
                  param = ScanBamParam(what=scanBamWhat(),
@@ -264,7 +291,7 @@ reads <- scanBam(file="spen_sim_1/STAR_1Aligned.sortedByCoord.out.bam",
 reads <- c(reads[names(reads)!="tag"],reads$tag)
 lapply(reads, head)
 #pull the reads that should have mapped out into new list
-zero_map_genes <- count_comparison$id[count_comparison$count.known>0 & count_comparison$count.mapped==0]
+zero_map_genes <- pen_count_comparison$id[pen_count_comparison$count.known>0 & pen_count_comparison$count.mapped==0]
 reads$gene <- unlist(strsplit(reads$qname,";"))[c(FALSE,TRUE,FALSE,FALSE)]
 lapply(reads, head)
 reads_zero <- lapply(reads,function(x) x[reads$gene %in% zero_map_genes])
@@ -305,39 +332,39 @@ samtools index STAR_2Aligned.sortedByCoord.out.bam
 
 ### Load in mapped counts
 ```{r }
-mapped_counts.2 <- read.delim("spen_sim_1/STAR_2ReadsPerGene.out.tab",header = FALSE, stringsAsFactors = FALSE)
-head(mapped_counts.2)
-mapped_counts.2 <- mapped_counts.2[,1:2] # 3 and 4 are directional counts which we don't care about
-colnames(mapped_counts.2) <- c("ID","count")
-mapped_counts.2$ID <- sub("gene:","",mapped_counts.2$ID,fixed=TRUE)
+pen_mapped_counts.2 <- read.delim("spen_sim_1/STAR_2ReadsPerGene.out.tab",header = FALSE, stringsAsFactors = FALSE)
+head(pen_mapped_counts.2)
+pen_mapped_counts.2 <- pen_mapped_counts.2[,1:2] # 3 and 4 are directional counts which we don't care about
+colnames(pen_mapped_counts.2) <- c("ID","count")
+pen_mapped_counts.2$ID <- sub("gene:","",pen_mapped_counts.2$ID,fixed=TRUE)
 ```
 
 ### Comparison
 ```{r}
 #check that I can use substring
-unique(nchar(known_counts$id)) #all are the same length
-known_counts$lyc_id <- substr(known_counts$id,18,33)
-head(known_counts)
-count_comparison.2 <- merge(known_counts,mapped_counts.2,by.x="lyc_id",by.y="ID",suffixes=c(".known",".mapped"))
-head(count_comparison.2)
-cor(count_comparison.2$count.known,count_comparison.2$count.mapped)
-plot(count_comparison.2$count.known,count_comparison.2$count.mapped)
+unique(nchar(pen_known_counts$id)) #all are the same length
+pen_known_counts$lyc_id <- substr(pen_known_counts$id,18,33)
+head(pen_known_counts)
+pen_count_comparison.2 <- merge(pen_known_counts,pen_mapped_counts.2,by.x="lyc_id",by.y="ID",suffixes=c(".known",".mapped"))
+head(pen_count_comparison.2)
+cor(pen_count_comparison.2$count.known,pen_count_comparison.2$count.mapped)
+plot(pen_count_comparison.2$count.known,pen_count_comparison.2$count.mapped)
 ```
 Not so good!
 
 how much is chromosome zero?
 ```{r}
-count_comparison.2$chrom <- substr(count_comparison.2$lyc_id,6,7)
-head(count_comparison.2)
+pen_count_comparison.2$chrom <- substr(pen_count_comparison.2$lyc_id,6,7)
+head(pen_count_comparison.2)
 library(ggplot2)
-qplot(x=count.known,y=count.mapped,data=count_comparison.2) + facet_wrap(~ chrom)
+qplot(x=count.known,y=count.mapped,data=pen_count_comparison.2) + facet_wrap(~ chrom)
 ```
 Not limited to chrom zero
 
 Investigate...
 Lets take a look at the bam file and extract reads from a few genes with 0 mapped reads.  Skip chromosome 0
 ```{r}
-head(count_comparison.2[count_comparison.2$chrom=="01" & count_comparison.2$count.mapped==0,],n=20)
+head(pen_count_comparison.2[pen_count_comparison.2$chrom=="01" & pen_count_comparison.2$count.mapped==0,],n=20)
 library(Rsamtools)
 reads <- scanBam(file="spen_sim_1/STAR_2Aligned.sortedByCoord.out.bam",
                  param = ScanBamParam(what=scanBamWhat(),
@@ -346,7 +373,7 @@ reads <- scanBam(file="spen_sim_1/STAR_2Aligned.sortedByCoord.out.bam",
 reads <- c(reads[names(reads)!="tag"],reads$tag)
 lapply(reads, head)
 #pull the reads that should have mapped out into new list
-zero_map_genes <- count_comparison.2$id[count_comparison.2$count.known>0 & count_comparison.2$count.mapped==0]
+zero_map_genes <- pen_count_comparison.2$id[pen_count_comparison.2$count.known>0 & pen_count_comparison.2$count.mapped==0]
 reads$gene <- unlist(strsplit(reads$qname,";"))[c(FALSE,TRUE,FALSE,FALSE)]
 lapply(reads, head)
 reads_zero <- lapply(reads,function(x) x[reads$gene %in% zero_map_genes])
@@ -385,39 +412,39 @@ samtools index STAR_3Aligned.sortedByCoord.out.bam
 
 ### Load in mapped counts
 ```{r }
-mapped_counts.3 <- read.delim("spen_sim_1/STAR_3ReadsPerGene.out.tab",header = FALSE, stringsAsFactors = FALSE)
-head(mapped_counts.3)
-mapped_counts.3 <- mapped_counts.3[,1:2] # 3 and 4 are directional counts which we don't care about
-colnames(mapped_counts.3) <- c("ID","count")
-mapped_counts.3$ID <- sub("gene:","",mapped_counts.3$ID,fixed=TRUE)
+pen_mapped_counts.3 <- read.delim("spen_sim_1/STAR_3ReadsPerGene.out.tab",header = FALSE, stringsAsFactors = FALSE)
+head(pen_mapped_counts.3)
+pen_mapped_counts.3 <- pen_mapped_counts.3[,1:2] # 3 and 4 are directional counts which we don't care about
+colnames(pen_mapped_counts.3) <- c("ID","count")
+pen_mapped_counts.3$ID <- sub("gene:","",pen_mapped_counts.3$ID,fixed=TRUE)
 ```
 
 ### Comparison
 ```{r}
 #check that I can use substring
-unique(nchar(known_counts$id)) #all are the same length
-known_counts$lyc_id <- substr(known_counts$id,18,33)
-head(known_counts)
-count_comparison.3 <- merge(known_counts,mapped_counts.3,by.x="lyc_id",by.y="ID",suffixes=c(".known",".mapped"))
-head(count_comparison.3)
-cor(count_comparison.3$count.known,count_comparison.3$count.mapped)
-plot(count_comparison.3$count.known,count_comparison.3$count.mapped)
+unique(nchar(pen_known_counts$id)) #all are the same length
+pen_known_counts$lyc_id <- substr(pen_known_counts$id,18,33)
+head(pen_known_counts)
+pen_count_comparison.3 <- merge(pen_known_counts,pen_mapped_counts.3,by.x="lyc_id",by.y="ID",suffixes=c(".known",".mapped"))
+head(pen_count_comparison.3)
+cor(pen_count_comparison.3$count.known,pen_count_comparison.3$count.mapped)
+plot(pen_count_comparison.3$count.known,pen_count_comparison.3$count.mapped)
 ```
 Not so good!
 
 how much is chromosome zero?
 ```{r}
-count_comparison.3$chrom <- substr(count_comparison.3$lyc_id,6,7)
-head(count_comparison.3)
+pen_count_comparison.3$chrom <- substr(pen_count_comparison.3$lyc_id,6,7)
+head(pen_count_comparison.3)
 library(ggplot2)
-qplot(x=count.known,y=count.mapped,data=count_comparison.3) + facet_wrap(~ chrom)
+qplot(x=count.known,y=count.mapped,data=pen_count_comparison.3) + facet_wrap(~ chrom)
 ```
 Not limited to chrom zero
 
 Investigate...
 Lets take a look at the bam file and extract reads from a few genes with 0 mapped reads.  Skip chromosome 0
 ```{r}
-head(count_comparison.3[count_comparison.3$chrom=="01" & count_comparison.3$count.mapped==0,],n=20)
+head(pen_count_comparison.3[pen_count_comparison.3$chrom=="01" & pen_count_comparison.3$count.mapped==0,],n=20)
 library(Rsamtools)
 reads <- scanBam(file="spen_sim_1/STAR_2Aligned.sortedByCoord.out.bam",
                  param = ScanBamParam(what=scanBamWhat(),
@@ -426,7 +453,66 @@ reads <- scanBam(file="spen_sim_1/STAR_2Aligned.sortedByCoord.out.bam",
 reads <- c(reads[names(reads)!="tag"],reads$tag)
 lapply(reads, head)
 #pull the reads that should have mapped out into new list
-zero_map_genes <- count_comparison.3$id[count_comparison.3$count.known>0 & count_comparison.3$count.mapped==0]
+zero_map_genes <- pen_count_comparison.3$id[pen_count_comparison.3$count.known>0 & pen_count_comparison.3$count.mapped==0]
+reads$gene <- unlist(strsplit(reads$qname,";"))[c(FALSE,TRUE,FALSE,FALSE)]
+lapply(reads, head)
+reads_zero <- lapply(reads,function(x) x[reads$gene %in% zero_map_genes])
+lapply(reads_zero,head,20)
+table(reads_zero$flag)
+hist(reads_zero$NH) #number of hits
+hist(reads$NH)
+#so a fair number of the reads from genes with zero counts are multi-mappers.
+
+#what about the other ones
+
+reads_zero_1hit <- lapply(reads_zero,function(x) x[reads_zero$NH==1])
+lapply(reads_zero_1hit,head,10)
+```
+
+### Load in mapped counts
+```{r }
+pen_mapped_counts.3 <- read.delim("spen_sim_1/STAR_3ReadsPerGene.out.tab",header = FALSE, stringsAsFactors = FALSE)
+head(pen_mapped_counts.3)
+pen_mapped_counts.3 <- pen_mapped_counts.3[,1:2] # 3 and 4 are directional counts which we don't care about
+colnames(pen_mapped_counts.3) <- c("ID","count")
+pen_mapped_counts.3$ID <- sub("gene:","",pen_mapped_counts.3$ID,fixed=TRUE)
+```
+
+### Comparison
+```{r}
+#check that I can use substring
+unique(nchar(pen_known_counts$id)) #all are the same length
+pen_known_counts$lyc_id <- substr(pen_known_counts$id,18,33)
+head(pen_known_counts)
+pen_count_comparison.3 <- merge(pen_known_counts,pen_mapped_counts.3,by.x="lyc_id",by.y="ID",suffixes=c(".known",".mapped"))
+head(pen_count_comparison.3)
+cor(pen_count_comparison.3$count.known,pen_count_comparison.3$count.mapped)
+plot(pen_count_comparison.3$count.known,pen_count_comparison.3$count.mapped)
+```
+Not so good!
+
+how much is chromosome zero?
+```{r}
+pen_count_comparison.3$chrom <- substr(pen_count_comparison.3$lyc_id,6,7)
+head(pen_count_comparison.3)
+library(ggplot2)
+qplot(x=count.known,y=count.mapped,data=pen_count_comparison.3) + facet_wrap(~ chrom)
+```
+Not limited to chrom zero
+
+Investigate...
+Lets take a look at the bam file and extract reads from a few genes with 0 mapped reads.  Skip chromosome 0
+```{r}
+head(pen_count_comparison.3[pen_count_comparison.3$chrom=="01" & pen_count_comparison.3$count.mapped==0,],n=20)
+library(Rsamtools)
+reads <- scanBam(file="spen_sim_1/STAR_2Aligned.sortedByCoord.out.bam",
+                 param = ScanBamParam(what=scanBamWhat(),
+                                      tag=c("NH","HI","AS","nM")))[[1]]
+#note: DO NOT convert reads to a data frame.  Uses lots of memory.
+reads <- c(reads[names(reads)!="tag"],reads$tag)
+lapply(reads, head)
+#pull the reads that should have mapped out into new list
+zero_map_genes <- pen_count_comparison.3$id[pen_count_comparison.3$count.known>0 & pen_count_comparison.3$count.mapped==0]
 reads$gene <- unlist(strsplit(reads$qname,";"))[c(FALSE,TRUE,FALSE,FALSE)]
 lapply(reads, head)
 reads_zero <- lapply(reads,function(x) x[reads$gene %in% zero_map_genes])
