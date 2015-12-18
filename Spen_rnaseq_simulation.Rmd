@@ -126,8 +126,10 @@ head(lyc_known_counts)
 
 ### Installation (only needs to be done once)
 
+```{r evl=FALSE, engine='bash'}
 brew install rna-star
 brew install gcc5 
+```
 
 ### Create genome file
 Only needs to be done once  
@@ -156,6 +158,7 @@ quantMode GeneCounts
 
 ```{r create runStar function}
 RunStar <- function(fasta, prefix, param.file = "../STAR.params.royce.1", args = "", dir =".", twopassMode = "Basic", n=12) {
+  #This function runs the external program STAR to map reads against the genome reference
   old.dir <- getwd()
   setwd(dir)
   system(paste("STAR", 
@@ -169,6 +172,20 @@ RunStar <- function(fasta, prefix, param.file = "../STAR.params.royce.1", args =
   system(paste("samtools index ",prefix,"Aligned.sortedByCoord.out.bam",sep=""))
   setwd(old.dir)
 }
+```
+
+```{r Functions_GetMappedCounts}
+GetMappedCounts <- function(prefix, dir=".", type="STAR") {
+  #Get mapped counts from alignment output files
+  if(type=="STAR") {
+    file <- file.path(dir,paste(prefix,"ReadsPerGene.out.tab",sep=""))
+    mapped_counts <- read.delim(file,header = FALSE, stringsAsFactors = FALSE)
+    mapped_counts <- mapped_counts[,1:2] # 3 and 4 are directional counts which we don't care about
+    colnames(mapped_counts) <- c("ID","count")
+    mapped_counts$ID <- sub("gene:","",mapped_counts$ID,fixed=TRUE)
+    return(mapped_counts)
+  }
+  stop(paste("Unknown result type:",type))}
 ```
 
 ### Run it!
@@ -189,17 +206,8 @@ We want to do:
 
 ### Load in mapped counts
 ```{r }
-pen_mapped_counts <- read.delim("spen_sim_1/STAR_1ReadsPerGene.out.tab",header = FALSE, stringsAsFactors = FALSE)
-head(pen_mapped_counts)
-pen_mapped_counts <- pen_mapped_counts[,1:2] # 3 and 4 are directional counts which we don't care about
-colnames(pen_mapped_counts) <- c("ID","count")
-pen_mapped_counts$ID <- sub("gene:","",pen_mapped_counts$ID,fixed=TRUE)
-
-lyc_mapped_counts <- read.delim("slyc_sim_1/STAR_1ReadsPerGene.out.tab",header = FALSE, stringsAsFactors = FALSE)
-head(lyc_mapped_counts)
-lyc_mapped_counts <- lyc_mapped_counts[,1:2] # 3 and 4 are directional counts which we don't care about
-colnames(lyc_mapped_counts) <- c("ID","count")
-lyc_mapped_counts$ID <- sub("gene:","",lyc_mapped_counts$ID,fixed=TRUE)
+pen_mapped_counts <- GetMappedCounts(prefix = "STAR_1", dir = "spen_sim_1")
+lyc_mapped_counts <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_sim_1")
 ```
 
 ### Comparison
