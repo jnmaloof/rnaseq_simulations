@@ -26,8 +26,9 @@ source("http://bioconductor.org/biocLite.R")
 biocLite("polyester")
 ```
 
-Load Spen transcripts  
+Load Spen and Slyc transcripts  
 Spen CDS fasta can be obtained from [SGN](ftp://ftp.solgenomics.net/genomes/Solanum_pennellii/annotations/)
+slyc fasta is also from [SGN](ftp://ftp.sgn.cornell.edu/genomes/Solanum_lycopersicum/annotation/ITAG2.4_release/)
 ```{r load_Spen}
 library(polyester)
 library(Biostrings)
@@ -35,6 +36,9 @@ setwd("~/Documents/Lab Notebook support/2015/rnaseq_simulations")
 pen.transcripts <-  readDNAStringSet("~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot.fa")
 head(pen.transcripts)
 names(pen.transcripts[1:10])
+lyc.transcripts <- readDNAStringSet("~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.fasta")
+head(lyc.transcripts)
+names(lyc.transcripts)[1:10]
 ```
 
 Reformat names to get rid of description and add Slyc reference
@@ -50,12 +54,19 @@ names(pen.transcripts) <- ifelse(!is.na(match(names(pen.transcripts),orthologs$P
                                  orthologs$PEN.LYC[match(names(pen.transcripts),orthologs$PEN)],
                                  names(pen.transcripts))
 pen.transcripts
+
+names(lyc.transcripts) <- substr(names(lyc.transcripts),1,18)
+names(lyc.transcripts) <- ifelse(!is.na(match(names(lyc.transcripts),orthologs$LYC)),
+                                 orthologs$PEN.LYC[match(names(lyc.transcripts),orthologs$LYC)],
+                                 names(lyc.transcripts))
 ```
 
-Lets limit ourselve to genes where orthology is clear:
+Lets limit ourselves to genes where orthology is clear:
 ```{r reduce_data}
 pen.transcripts.small <- pen.transcripts[nchar(names(pen.transcripts))>16]
 writeXStringSet(pen.transcripts.small,file="~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot_orthlogs_only.fa")
+lyc.transcripts.small <- lyc.transcripts[nchar(names(lyc.transcripts)) > 18]
+writeXStringSet(lyc.transcripts.small,file="~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.pen.orthologs.only.fasta")
 ```
 
 
@@ -73,11 +84,32 @@ system.time(
                                                      5e6/ sum(width(pen.transcripts.small) )),
                       paired=FALSE,
                       error_model="illumina5",
-                      bias="rnaf",
-                      transcriptid=names(pen.transcripts.small)
+                      bias="rnaf"
   )
 )
 system("sed 's!/!;!' spen_sim_1/sample_01.fasta > spen_sim_1/sample_01_renamed.fasta") #this allows original gene_names to be kept
+system("rm spen_sim_1/sample_01.fasta")
+system("gzip spen_sim_1/sample_01_renamed.fasta")
+```
+
+Simulate LYC RNAseq reads
+```{r simulate_pen_1}
+system.time(
+  simulate_experiment(fasta="~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.pen.orthologs.only.fasta",
+                      outdir="slyc_sim_1",
+                      num_reps=1,
+                      readlen=45,
+                      #line below gives ~ 5M reads, scaled by transcript length
+                      reads_per_transcript = round(width(lyc.transcripts.small) * 
+                                                     5e6/ sum(width(pen.transcripts.small) )),
+                      paired=FALSE,
+                      error_model="illumina5",
+                      bias="rnaf"
+  )
+)
+system("sed 's!/!;!' slyc_sim_1/sample_01.fasta > slyc_sim_1/sample_01_renamed.fasta") #this allows original gene_names to be kept
+system("rm slyc_sim_1/sample_01.fasta")
+system("gzip slyc_sim_1/sample_01_renamed.fasta")
 ```
 
 ## Map with star
@@ -116,10 +148,19 @@ __note__ I needed to use STAR2.5 for this to work.
 
 ```{r eval=FALSE, engine='bash'}
 cd spen_sim_1
-STAR --parametersFiles ../STAR.params.1 --readFilesIn ./sample_01_renamed.fasta --outFileNamePrefix STAR_1 
+STAR --parametersFiles ../STAR.params.1 --readFilesIn ./sample_01_renamed.fasta.gz --readFilesCommand zcat --outFileNamePrefix STAR_1 
 samtools index STAR_1Aligned.sortedByCoord.out.bam
 ```
 
+### Run it!
+
+__note__ I needed to use STAR2.5 for this to work.
+
+```{r eval=FALSE, engine='bash'}
+cd ../slyc_sim_1
+STAR --parametersFiles ../STAR.params.3 --readFilesIn ./sample_01_renamed.fasta.gz --readFilesCommand zcat --outFileNamePrefix STAR_1 
+samtools index STAR_1Aligned.sortedByCoord.out.bam
+```
 ## Evaluate results
 
 We want to do:
@@ -258,7 +299,7 @@ __note__ I needed to use STAR2.5 for this to work.
 
 ```{r eval=FALSE, engine='bash'}
 cd spen_sim_1
-STAR --parametersFiles ../STAR.params.2 --readFilesIn ./sample_01_renamed.fasta --outFileNamePrefix STAR_2 
+STAR --parametersFiles ../STAR.params.2 --readFilesIn ./sample_01_renamed.fasta.gz --readFilesCommand zcat --outFileNamePrefix STAR_2 
 samtools index STAR_2Aligned.sortedByCoord.out.bam
 ```
 
@@ -338,7 +379,7 @@ __note__ I needed to use STAR2.5 for this to work.
 
 ```{r eval=FALSE, engine='bash'}
 cd spen_sim_1
-STAR --parametersFiles ../STAR.params.3 --readFilesIn ./sample_01_renamed.fasta --outFileNamePrefix STAR_3 
+STAR --parametersFiles ../STAR.params.3 --readFilesIn ./sample_01_renamed.fasta.gz --readFilesCommand zcat --outFileNamePrefix STAR_3 
 samtools index STAR_3Aligned.sortedByCoord.out.bam
 ```
 
