@@ -116,9 +116,11 @@ system("gzip slyc_sim_1/sample_01_renamed.fasta")
 use external python script
 ```{r}
 pen_known_counts <- read.table(pipe("./CountGene.py spen_sim_1/sample_01.fasta.gz"),col.names=c("id","count"),stringsAsFactors = FALSE)
+pen_known_counts$lyc_id <- substr(pen_known_counts$id,18,33)
 head(pen_known_counts)
 
 lyc_known_counts <- read.table(pipe("./CountGene.py slyc_sim_1/sample_01.fasta.gz"),col.names=c("id","count"),stringsAsFactors = FALSE)
+lyc_known_counts$lyc_id <- substr(lyc_known_counts$id,18,33)
 head(lyc_known_counts)
 ```
 
@@ -213,17 +215,11 @@ lyc_mapped_counts <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_sim_1")
 ### Comparison
 ```{r}
 #check that I can use substring
-unique(nchar(pen_known_counts$id)) #all are the same length
-pen_known_counts$lyc_id <- substr(pen_known_counts$id,18,33)
-head(pen_known_counts)
 pen_count_comparison <- merge(pen_known_counts,pen_mapped_counts,by.x="lyc_id",by.y="ID",suffixes=c(".known",".mapped"))
 head(pen_count_comparison)
 cor(pen_count_comparison$count.known,pen_count_comparison$count.mapped)
 plot(pen_count_comparison$count.known,pen_count_comparison$count.mapped,main="S. pennellii")
 
-unique(nchar(lyc_known_counts$id)) #all are the same length
-lyc_known_counts$lyc_id <- substr(lyc_known_counts$id,18,33)
-head(lyc_known_counts)
 lyc_count_comparison <- merge(lyc_known_counts,lyc_mapped_counts,by.x="lyc_id",by.y="ID",suffixes=c(".known",".mapped"))
 head(lyc_count_comparison)
 cor(lyc_count_comparison$count.known,lyc_count_comparison$count.mapped)
