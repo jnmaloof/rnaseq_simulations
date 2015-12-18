@@ -111,6 +111,17 @@ system("rm slyc_sim_1/sample_01.fasta")
 system("gzip slyc_sim_1/sample_01_renamed.fasta")
 ```
 
+### calculate known counts
+
+use external python script
+```{r}
+pen_known_counts <- read.table(pipe("./CountGene.py spen_sim_1/sample_01.fasta.gz"),col.names=c("id","count"),stringsAsFactors = FALSE)
+head(pen_known_counts)
+
+lyc_known_counts <- read.table(pipe("./CountGene.py slyc_sim_1/sample_01.fasta.gz"),col.names=c("id","count"),stringsAsFactors = FALSE)
+head(lyc_known_counts)
+```
+
 ## Map with star
 
 ### Installation (only needs to be done once)
@@ -175,17 +186,6 @@ We want to do:
 * how many reads map to the wrong gene?
 * how many reads do not map?
 * something about splice junctions
-
-### calculate known counts
-
-use external python script
-```{r}
-pen_known_counts <- read.table(pipe("./CountGene.py spen_sim_1/sample_01.fasta.gz"),col.names=c("id","count"),stringsAsFactors = FALSE)
-head(pen_known_counts)
-
-lyc_known_counts <- read.table(pipe("./CountGene.py slyc_sim_1/sample_01.fasta.gz"),col.names=c("id","count"),stringsAsFactors = FALSE)
-head(lyc_known_counts)
-```
 
 ### Load in mapped counts
 ```{r }
