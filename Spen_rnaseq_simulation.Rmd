@@ -30,6 +30,7 @@ Load Spen and Slyc transcripts
 Spen CDS fasta can be obtained from [SGN](ftp://ftp.solgenomics.net/genomes/Solanum_pennellii/annotations/)
 slyc fasta is also from [SGN](ftp://ftp.sgn.cornell.edu/genomes/Solanum_lycopersicum/annotation/ITAG2.4_release/)
 ```{r load_Spen}
+library(ggplot2)
 library(polyester)
 library(Biostrings)
 setwd("~/Documents/Lab Notebook support/2015/rnaseq_simulations")
@@ -213,31 +214,26 @@ lyc_mapped_counts <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_sim_1")
 ```
 
 ### Comparison
-```{r}
-#check that I can use substring
-pen_count_comparison <- merge(pen_known_counts,pen_mapped_counts,by.x="lyc_id",by.y="ID",suffixes=c(".known",".mapped"))
-head(pen_count_comparison)
-cor(pen_count_comparison$count.known,pen_count_comparison$count.mapped)
-plot(pen_count_comparison$count.known,pen_count_comparison$count.mapped,main="S. pennellii")
 
-lyc_count_comparison <- merge(lyc_known_counts,lyc_mapped_counts,by.x="lyc_id",by.y="ID",suffixes=c(".known",".mapped"))
-head(lyc_count_comparison)
-cor(lyc_count_comparison$count.known,lyc_count_comparison$count.mapped)
-plot(lyc_count_comparison$count.known,lyc_count_comparison$count.mapped,main="S. lycopersicum")
+```{r compare_function}
+CompareCounts <- function(known.counts,mapped.counts, title= NULL, plot = TRUE, chrom.separate = TRUE,correlation=TRUE,return=TRUE) {
+  count.comparison <- merge(known.counts,pen_mapped.counts,by.x="lyc_id",by.y="ID",suffixes=c(".known",".mapped"))
+  read.correlation <- cor(count.comparison$count.known,count.comparison$count.mapped)
+  if (correlation) print(read.correlation)
+  if(plot & !chrom.separate) {
+    plot(count.comparison$count.known,count.comparison$count.mapped,
+         main=paste(title,"\nCorrelation:", 
+                    round(read.correlation,3)))
+  }
+  if(plot & chrom.separate) {
+    print(qplot(x=count.known,y=count.mapped,data=lyc_count_comparison) + 
+            facet_wrap(~ chrom) + 
+            ggtitle(paste(title,"\nCorrelation:", round(read.correlation,3))))
+  }
+}
 ```
-Lyc much better than Pen.  Bummer!
 
-how much is chromosome zero?
-```{r}
-pen_count_comparison$chrom <- substr(pen_count_comparison$lyc_id,6,7)
-head(pen_count_comparison)
-library(ggplot2)
-qplot(x=count.known,y=count.mapped,data=pen_count_comparison) + facet_wrap(~ chrom)
 
-lyc_count_comparison$chrom <- substr(lyc_count_comparison$lyc_id,6,7)
-head(lyc_count_comparison)
-library(ggplot2)
-qplot(x=count.known,y=count.mapped,data=lyc_count_comparison) + facet_wrap(~ chrom)
 ```
 Not limited to chrom zero
 
