@@ -39,9 +39,10 @@ brew install gcc5
 ### libraries, etc
 
 ```{r}
-library(ggplot2)
 library(polyester)
 library(Biostrings)
+library(ggplot2)
+library(Rsamtools)
 setwd("~/Documents/Lab Notebook support/2015/rnaseq_simulations")
 ```
 
@@ -253,18 +254,14 @@ lyc.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_sim_1")
 ### Comparison
 
 ```{r compare_spen1}
-CompareCounts(pen.known.counts, pen.mapped.counts, title = "S. pen.  STAR mapped.  Default parameters")
-CompareCounts(lyc.known.counts, lyc.mapped.counts, title = "S. lyc.  STAR mapped.  Default parameters")
+pen.count.comparison.1 <- CompareCounts(pen.known.counts, pen.mapped.counts, title = "S. pen.  STAR mapped.  Default parameters")
+lyc.count.comparison.1 <- CompareCounts(lyc.known.counts, lyc.mapped.counts, title = "S. lyc.  STAR mapped.  Default parameters")
 ```
-
-
-Not limited to chrom zero
 
 Investigate...
 Lets take a look at the bam file and extract reads from a few genes with 0 mapped reads.  Skip chromosome 0
 ```{r}
-head(pen_count_comparison[pen_count_comparison$chrom=="01" & pen_count_comparison$count.mapped==0,],n=20)
-library(Rsamtools)
+head(pen.count.comparison.1[pen.count.comparison.1$chrom=="01" & pen.count.comparison.1$count.mapped==0,],n=20)
 reads <- scanBam(file="spen_sim_1/STAR_1Aligned.sortedByCoord.out.bam",
                  param = ScanBamParam(what=scanBamWhat(),
                                       tag=c("NH","HI","AS","nM")))[[1]]
