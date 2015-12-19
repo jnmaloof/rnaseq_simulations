@@ -31,7 +31,7 @@ biocLite("polyester")
 
 ### Install STAR (only needs to be done once)
 (NOTE THAT VERSION 2.5 IS NEEDED AND THIS IS NOT CURRENTLY IN HOMEBREW)
-```{r eval=FALSE, engine='bash'}
+```{r install_STAR eval=FALSE, engine='bash'}
 brew install rna-star
 brew install gcc5 
 ```
@@ -49,7 +49,7 @@ setwd("~/Documents/Lab Notebook support/2015/rnaseq_simulations")
 ### Define some useful functions
 
 Function for running the read mapping program STAR
-```{r create runStar function}
+```{r runStar_function}
 RunStar <- function(fasta, prefix, param.file = "../STAR.params.royce.1", args = "", dir =".", twopassMode = "Basic", n=12) {
   #This function runs the external program STAR to map reads against the genome reference
   old.dir <- getwd()
@@ -68,7 +68,7 @@ RunStar <- function(fasta, prefix, param.file = "../STAR.params.royce.1", args =
 ```
 
 Function for retrieving mapped read counts per gene
-```{r Functions_GetMappedCounts}
+```{r GetMappedCounts_function}
 GetMappedCounts <- function(prefix, dir=".", type="STAR") {
   #Get mapped counts from alignment output files
   if(type=="STAR") {
@@ -84,8 +84,9 @@ GetMappedCounts <- function(prefix, dir=".", type="STAR") {
 
 Function to compare known and mapped counts
 ```{r compare_function}
-CompareCounts <- function(known.counts,mapped.counts, title= NULL, plot = TRUE, chrom.separate = TRUE,correlation=TRUE,return=TRUE) {
-  count.comparison <- merge(known.counts,pen_mapped.counts,by.x="lyc.id",by.y="ID",suffixes=c(".known",".mapped"))
+CompareCounts <- function(known.counts,mapped.counts, title= NULL, plot = TRUE, chrom.separate = TRUE, correlation=TRUE, return.merged.table=TRUE) {
+  count.comparison <- merge(known.counts,mapped.counts,by.x="lyc.id",by.y="ID",suffixes=c(".known",".mapped"))
+  count.comparison$chrom <- substr(count.comparison$lyc.id,6,7)
   read.correlation <- cor(count.comparison$count.known,count.comparison$count.mapped)
   if (correlation) print(read.correlation)
   if(plot & !chrom.separate) {
@@ -94,10 +95,11 @@ CompareCounts <- function(known.counts,mapped.counts, title= NULL, plot = TRUE, 
                     round(read.correlation,3)))
   }
   if(plot & chrom.separate) {
-    print(qplot(x=count.known,y=count.mapped,data=lyc_count_comparison) + 
+    print(qplot(x=count.known,y=count.mapped,data=count.comparison) + 
             facet_wrap(~ chrom) + 
             ggtitle(paste(title,"\nCorrelation:", round(read.correlation,3))))
   }
+  if(return.merged.table) return(count.comparison)
 }
 ```
 
@@ -107,7 +109,7 @@ CompareCounts <- function(known.counts,mapped.counts, title= NULL, plot = TRUE, 
 Load Spen and Slyc transcripts  
 Spen CDS fasta can be obtained from [SGN](ftp://ftp.solgenomics.net/genomes/Solanum_pennellii/annotations/)
 slyc fasta is also from [SGN](ftp://ftp.sgn.cornell.edu/genomes/Solanum_lycopersicum/annotation/ITAG2.4_release/)
-```{r load_Spen}
+```{r load_Spen, eval=FALSE}
 pen.transcripts <-  readDNAStringSet("~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot.fa")
 head(pen.transcripts)
 names(pen.transcripts[1:10])
@@ -117,7 +119,7 @@ names(lyc.transcripts)[1:10]
 ```
 
 Reformat names to get rid of description and add Slyc reference
-```{r }
+```{r reformat_gene_names, eval=FALSE}
 orthologs <- read.delim("Ortho_v2.txt",header=FALSE) #From Tony Bolger
 head(orthologs)
 names(orthologs) <- c("PEN","LYC")
@@ -137,7 +139,7 @@ names(lyc.transcripts) <- ifelse(!is.na(match(names(lyc.transcripts),orthologs$L
 ```
 
 Lets limit ourselves to genes where orthology is clear:
-```{r reduce_data}
+```{r reduce_data, eval=FALSE}
 pen.transcripts.small <- pen.transcripts[nchar(names(pen.transcripts))>16]
 writeXStringSet(pen.transcripts.small,file="~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot_orthlogs_only.fa")
 lyc.transcripts.small <- lyc.transcripts[nchar(names(lyc.transcripts)) > 18]
@@ -145,7 +147,7 @@ writeXStringSet(lyc.transcripts.small,file="~/Sequences/ref_genomes/tomato/ITAG2
 ```
 
 Simulate PEN RNAseq reads
-```{r simulate_pen_1}
+```{r simulate_pen_1, eval=FALSE}
 #3 minutes for 1M reads
 #15 minutes for 5M reads
 system.time(
@@ -167,7 +169,7 @@ system("gzip spen_sim_1/sample_01_renamed.fasta")
 ```
 
 Simulate LYC RNAseq reads
-```{r simulate_pen_1}
+```{r simulate_lyc_1, eval=FALSE}
 system.time(
   simulate_experiment(fasta="~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.pen.orthologs.only.fasta",
                       outdir="slyc_sim_1",
@@ -189,12 +191,12 @@ system("gzip slyc_sim_1/sample_01_renamed.fasta")
 ### calculate known counts
 
 use external python script
-```{r}
-pen.known.counts <- read.table(pipe("./CountGene.py spen_sim_1/sample_01.fasta.gz"),col.names=c("id","count"),stringsAsFactors = FALSE)
+```{r known_counts}
+pen.known.counts <- read.table(pipe("./CountGene.py spen_sim_1/sample_01_renamed.fasta.gz"),col.names=c("id","count"),stringsAsFactors = FALSE)
 pen.known.counts$lyc.id <- substr(pen.known.counts$id,18,33)
 head(pen.known.counts)
 
-lyc.known.counts <- read.table(pipe("./CountGene.py slyc_sim_1/sample_01.fasta.gz"),col.names=c("id","count"),stringsAsFactors = FALSE)
+lyc.known.counts <- read.table(pipe("./CountGene.py slyc_sim_1/sample_01_renamed.fasta.gz"),col.names=c("id","count"),stringsAsFactors = FALSE)
 lyc.known.counts$lyc.id <- substr(lyc.known.counts$id,18,33)
 head(lyc.known.counts)
 ```
@@ -205,13 +207,13 @@ head(lyc.known.counts)
 Only needs to be done once  
 This is a shell command  
 Takes about 25 minutes  
-```{r eval=FALSE, engine='bash'}
+```{r create_genome_file, eval=FALSE, engine='bash'}
 gffread -T ITAG2.4_gene_models.gff3 -o ITAG2.4_gene_models.gtf
 STAR --runThreadN 6 --runMode genomeGenerate --genomeDir ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_genome --genomeFastaFiles ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa --sjdbGTFfile ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_gene_models.gtf
 ```
 
 ### Create parameters files
-```{r eval=FALSE, engine='bash'}
+```{r STAR_params_1, eval=FALSE, engine='bash'}
 cat > STAR.params.whitney.1
 genomeDir /Network/Servers/avalanche.plb.ucdavis.edu/Volumes/Mammoth/Users/jmaloof/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_genome
 outSAMtype BAM SortedByCoordinate
@@ -227,7 +229,7 @@ quantMode GeneCounts
 ```
 
 ### Run it!
-```{r, eval=FALSE}
+```{r RunStar_1, eval=FALSE}
 RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="spen_sim_1",n=2)
 RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="slyc_sim_1",n=2)
 ```
@@ -243,7 +245,7 @@ We want to do:
 * something about splice junctions
 
 ### Load in mapped counts
-```{r }
+```{r get_mapped_counts }
 pen.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "spen_sim_1")
 lyc.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_sim_1")
 ```
@@ -251,7 +253,8 @@ lyc.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_sim_1")
 ### Comparison
 
 ```{r compare_spen1}
-CompareCounts
+CompareCounts(pen.known.counts, pen.mapped.counts, title = "S. pen.  STAR mapped.  Default parameters")
+CompareCounts(lyc.known.counts, lyc.mapped.counts, title = "S. lyc.  STAR mapped.  Default parameters")
 ```
 
 
