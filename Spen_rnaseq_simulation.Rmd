@@ -16,9 +16,11 @@ I plan to compare
 * star
 * bowtie
 
-## Simluate reads (simple version)
+## preliminaries
 
-Use the [Polyester package.](http://bioconductor.org/packages/release/bioc/vignettes/polyester/inst/doc/polyester.html)  Also see the [Polyester paper.](http://bioinformatics.oxfordjournals.org/content/31/17/2778)
+### Install Polyester
+
+Use the [Polyester package](http://bioconductor.org/packages/release/bioc/vignettes/polyester/inst/doc/polyester.html)  to simulate RNAseq reads.  Also see the [Polyester paper.](http://bioinformatics.oxfordjournals.org/content/31/17/2778)
 
 Installation.  Only needs to be run once per computer.
 ```{r install_polyester, eval=FALSE}
@@ -26,14 +28,86 @@ source("http://bioconductor.org/biocLite.R")
 biocLite("polyester")
 ```
 
-Load Spen and Slyc transcripts  
-Spen CDS fasta can be obtained from [SGN](ftp://ftp.solgenomics.net/genomes/Solanum_pennellii/annotations/)
-slyc fasta is also from [SGN](ftp://ftp.sgn.cornell.edu/genomes/Solanum_lycopersicum/annotation/ITAG2.4_release/)
-```{r load_Spen}
+
+### Install STAR (only needs to be done once)
+(NOTE THAT VERSION 2.5 IS NEEDED AND THIS IS NOT CURRENTLY IN HOMEBREW)
+```{r eval=FALSE, engine='bash'}
+brew install rna-star
+brew install gcc5 
+```
+
+### libraries, etc
+
+```{r}
 library(ggplot2)
 library(polyester)
 library(Biostrings)
 setwd("~/Documents/Lab Notebook support/2015/rnaseq_simulations")
+```
+
+
+### Define some useful functions
+
+Function for running the read mapping program STAR
+```{r create runStar function}
+RunStar <- function(fasta, prefix, param.file = "../STAR.params.royce.1", args = "", dir =".", twopassMode = "Basic", n=12) {
+  #This function runs the external program STAR to map reads against the genome reference
+  old.dir <- getwd()
+  setwd(dir)
+  system(paste("STAR", 
+               "--parametersFiles", param.file,
+               "--readFilesIn", fasta,
+               ifelse(grepl("\\.gz$",fasta),"--readFilesCommand 'gunzip -c'",""),
+               "--outFileNamePrefix", prefix,
+               "--twopassMode", twopassMode,
+               "--runThreadN",n,
+               args))
+  system(paste("samtools index ",prefix,"Aligned.sortedByCoord.out.bam",sep=""))
+  setwd(old.dir)
+}
+```
+
+Function for retrieving mapped read counts per gene
+```{r Functions_GetMappedCounts}
+GetMappedCounts <- function(prefix, dir=".", type="STAR") {
+  #Get mapped counts from alignment output files
+  if(type=="STAR") {
+    file <- file.path(dir,paste(prefix,"ReadsPerGene.out.tab",sep=""))
+    mapped_counts <- read.delim(file,header = FALSE, stringsAsFactors = FALSE)
+    mapped_counts <- mapped_counts[,1:2] # 3 and 4 are directional counts which we don't care about
+    colnames(mapped_counts) <- c("ID","count")
+    mapped_counts$ID <- sub("gene:","",mapped_counts$ID,fixed=TRUE)
+    return(mapped_counts)
+  }
+  stop(paste("Unknown result type:",type))}
+```
+
+Function to compare known and mapped counts
+```{r compare_function}
+CompareCounts <- function(known.counts,mapped.counts, title= NULL, plot = TRUE, chrom.separate = TRUE,correlation=TRUE,return=TRUE) {
+  count.comparison <- merge(known.counts,pen_mapped.counts,by.x="lyc.id",by.y="ID",suffixes=c(".known",".mapped"))
+  read.correlation <- cor(count.comparison$count.known,count.comparison$count.mapped)
+  if (correlation) print(read.correlation)
+  if(plot & !chrom.separate) {
+    plot(count.comparison$count.known,count.comparison$count.mapped,
+         main=paste(title,"\nCorrelation:", 
+                    round(read.correlation,3)))
+  }
+  if(plot & chrom.separate) {
+    print(qplot(x=count.known,y=count.mapped,data=lyc_count_comparison) + 
+            facet_wrap(~ chrom) + 
+            ggtitle(paste(title,"\nCorrelation:", round(read.correlation,3))))
+  }
+}
+```
+
+
+## Simluate reads (simple version)
+
+Load Spen and Slyc transcripts  
+Spen CDS fasta can be obtained from [SGN](ftp://ftp.solgenomics.net/genomes/Solanum_pennellii/annotations/)
+slyc fasta is also from [SGN](ftp://ftp.sgn.cornell.edu/genomes/Solanum_lycopersicum/annotation/ITAG2.4_release/)
+```{r load_Spen}
 pen.transcripts <-  readDNAStringSet("~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot.fa")
 head(pen.transcripts)
 names(pen.transcripts[1:10])
@@ -116,23 +190,16 @@ system("gzip slyc_sim_1/sample_01_renamed.fasta")
 
 use external python script
 ```{r}
-pen_known_counts <- read.table(pipe("./CountGene.py spen_sim_1/sample_01.fasta.gz"),col.names=c("id","count"),stringsAsFactors = FALSE)
-pen_known_counts$lyc_id <- substr(pen_known_counts$id,18,33)
-head(pen_known_counts)
+pen.known.counts <- read.table(pipe("./CountGene.py spen_sim_1/sample_01.fasta.gz"),col.names=c("id","count"),stringsAsFactors = FALSE)
+pen.known.counts$lyc.id <- substr(pen.known.counts$id,18,33)
+head(pen.known.counts)
 
-lyc_known_counts <- read.table(pipe("./CountGene.py slyc_sim_1/sample_01.fasta.gz"),col.names=c("id","count"),stringsAsFactors = FALSE)
-lyc_known_counts$lyc_id <- substr(lyc_known_counts$id,18,33)
-head(lyc_known_counts)
+lyc.known.counts <- read.table(pipe("./CountGene.py slyc_sim_1/sample_01.fasta.gz"),col.names=c("id","count"),stringsAsFactors = FALSE)
+lyc.known.counts$lyc.id <- substr(lyc.known.counts$id,18,33)
+head(lyc.known.counts)
 ```
 
 ## Map with star
-
-### Installation (only needs to be done once)
-
-```{r evl=FALSE, engine='bash'}
-brew install rna-star
-brew install gcc5 
-```
 
 ### Create genome file
 Only needs to be done once  
@@ -159,38 +226,6 @@ quantMode GeneCounts
 
 ```
 
-```{r create runStar function}
-RunStar <- function(fasta, prefix, param.file = "../STAR.params.royce.1", args = "", dir =".", twopassMode = "Basic", n=12) {
-  #This function runs the external program STAR to map reads against the genome reference
-  old.dir <- getwd()
-  setwd(dir)
-  system(paste("STAR", 
-               "--parametersFiles", param.file,
-               "--readFilesIn", fasta,
-               ifelse(grepl("\\.gz$",fasta),"--readFilesCommand 'gunzip -c'",""),
-               "--outFileNamePrefix", prefix,
-               "--twopassMode", twopassMode,
-               "--runThreadN",n,
-               args))
-  system(paste("samtools index ",prefix,"Aligned.sortedByCoord.out.bam",sep=""))
-  setwd(old.dir)
-}
-```
-
-```{r Functions_GetMappedCounts}
-GetMappedCounts <- function(prefix, dir=".", type="STAR") {
-  #Get mapped counts from alignment output files
-  if(type=="STAR") {
-    file <- file.path(dir,paste(prefix,"ReadsPerGene.out.tab",sep=""))
-    mapped_counts <- read.delim(file,header = FALSE, stringsAsFactors = FALSE)
-    mapped_counts <- mapped_counts[,1:2] # 3 and 4 are directional counts which we don't care about
-    colnames(mapped_counts) <- c("ID","count")
-    mapped_counts$ID <- sub("gene:","",mapped_counts$ID,fixed=TRUE)
-    return(mapped_counts)
-  }
-  stop(paste("Unknown result type:",type))}
-```
-
 ### Run it!
 ```{r, eval=FALSE}
 RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="spen_sim_1",n=2)
@@ -209,32 +244,17 @@ We want to do:
 
 ### Load in mapped counts
 ```{r }
-pen_mapped_counts <- GetMappedCounts(prefix = "STAR_1", dir = "spen_sim_1")
-lyc_mapped_counts <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_sim_1")
+pen.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "spen_sim_1")
+lyc.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_sim_1")
 ```
 
 ### Comparison
 
-```{r compare_function}
-CompareCounts <- function(known.counts,mapped.counts, title= NULL, plot = TRUE, chrom.separate = TRUE,correlation=TRUE,return=TRUE) {
-  count.comparison <- merge(known.counts,pen_mapped.counts,by.x="lyc_id",by.y="ID",suffixes=c(".known",".mapped"))
-  read.correlation <- cor(count.comparison$count.known,count.comparison$count.mapped)
-  if (correlation) print(read.correlation)
-  if(plot & !chrom.separate) {
-    plot(count.comparison$count.known,count.comparison$count.mapped,
-         main=paste(title,"\nCorrelation:", 
-                    round(read.correlation,3)))
-  }
-  if(plot & chrom.separate) {
-    print(qplot(x=count.known,y=count.mapped,data=lyc_count_comparison) + 
-            facet_wrap(~ chrom) + 
-            ggtitle(paste(title,"\nCorrelation:", round(read.correlation,3))))
-  }
-}
+```{r compare_spen1}
+CompareCounts
 ```
 
 
-```
 Not limited to chrom zero
 
 Investigate...
