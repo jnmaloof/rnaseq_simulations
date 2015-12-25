@@ -269,15 +269,36 @@ reads <- scanBam(file="spen_sim_1/STAR_1Aligned.sortedByCoord.out.bam",
 reads <- c(reads[names(reads)!="tag"],reads$tag)
 lapply(reads, head)
 #pull the reads that should have mapped out into new list
-zero_map_genes <- pen_count_comparison$id[pen_count_comparison$count.known>0 & pen_count_comparison$count.mapped==0]
+zero.map.genes <- pen.count.comparison.1$id[pen.count.comparison.1$count.known>0 & pen.count.comparison.1$count.mapped==0]
 reads$gene <- unlist(strsplit(reads$qname,";"))[c(FALSE,TRUE,FALSE,FALSE)]
 lapply(reads, head)
-reads_zero <- lapply(reads,function(x) x[reads$gene %in% zero_map_genes])
-lapply(reads_zero,head,20)
-table(reads_zero$flag)
-hist(reads_zero$NH) #number of hits
-hist(reads$NH)
+reads.zero <- lapply(reads,function(x) x[reads$gene %in% zero.map.genes])
+lapply(reads.zero,head,20)
+table(reads.zero$flag)
+table(reads.zero$NH) #number of hits
+plot(table(reads.zero$NH),lwd=20,type="h",col="skyblue",
+     main="Reads from zero-count genes",
+     xlab="# of genes with match",
+     ylab="count") #number of hits
+plot(table(reads$NH),lwd=20,type="h",col="skyblue",
+     main="Reads from all genes",
+     xlab="# of genes with match",
+     ylab="count") #number of hits
 #so a fair number of the reads from genes with zero counts are multi-mappers.
+
+#Of these multi-mappers what is their score?
+
+reads.zero.multi.map <- lapply(reads.zero,function(x) x[reads.zero$NH >1])
+hist(reads.zero.multi.map$AS)
+plot(table(reads.zero.multi.map$nM))
+
+hist(reads$AS)
+plot(table(reads$nM))
+
+#TODO: plot the above on the same plots for all reads and the multi-mappers...
+
+#TODO: What is the length of the predicted transcripts?
+
 
 #what about the other ones
 
