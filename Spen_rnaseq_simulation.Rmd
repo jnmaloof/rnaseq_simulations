@@ -269,35 +269,37 @@ reads <- scanBam(file="spen_sim_1/STAR_1Aligned.sortedByCoord.out.bam",
 reads <- c(reads[names(reads)!="tag"],reads$tag)
 lapply(reads, head)
 #pull the reads that should have mapped out into new list
-zero.map.genes <- pen.count.comparison.1$id[pen.count.comparison.1$count.known>0 & pen.count.comparison.1$count.mapped==0]
+genes.zero.map <- pen.count.comparison.1$id[pen.count.comparison.1$count.known>0 & pen.count.comparison.1$count.mapped==0]
 reads$gene <- unlist(strsplit(reads$qname,";"))[c(FALSE,TRUE,FALSE,FALSE)]
 lapply(reads, head)
-reads.zero <- lapply(reads,function(x) x[reads$gene %in% zero.map.genes])
-lapply(reads.zero,head,20)
-table(reads.zero$flag)
-table(reads.zero$NH) #number of hits
-plot(table(reads.zero$NH),lwd=20,type="h",col="skyblue",
-     main="Reads from zero-count genes",
-     xlab="# of genes with match",
-     ylab="count") #number of hits
-plot(table(reads$NH),lwd=20,type="h",col="skyblue",
-     main="Reads from all genes",
-     xlab="# of genes with match",
-     ylab="count") #number of hits
-#so a fair number of the reads from genes with zero counts are multi-mappers.
+reads$zero.map <- reads$gene %in% genes.zero.map
+#reads.zero <- lapply(reads,function(x) x[reads$gene %in% genes.zero.map])
+table(reads$flag,reads$zero.map)
+table(reads$NH,reads$zero.map) #number of hits
 
-#Of these multi-mappers what is their score?
+reads.df <- with(reads,data.frame(flag,cigar,NH,HI,AS,nM,gene,zero.map),stringsAsFactors=FALSE)
 
-reads.zero.multi.map <- lapply(reads.zero,function(x) x[reads.zero$NH >1])
-hist(reads.zero.multi.map$AS)
-plot(table(reads.zero.multi.map$nM))
+reads.df$multimap <- reads.df$NH>1
 
-hist(reads$AS)
-plot(table(reads$nM))
+ggplot(reads.df,aes(x=nM,color=multimap,fill=multimap)) + geom_density(alpha=.5)
 
-#TODO: plot the above on the same plots for all reads and the multi-mappers...
+ggplot(reads.df,aes(x=multimap,y=nM,color=multimap,fill=multimap)) + geom_violin()
+
+ggplot(reads.df,aes(x=as.factor(NH),y=nM)) + geom_boxplot()
+
+ggplot(reads.df[reads.df$NH<2,],aes(x=as.factor(NH),y=nM)) + geom_violin()
 
 #TODO: What is the length of the predicted transcripts?
+
+genes.zero.map.zero.hit <- unique(substr(reads$qname[reads$NH==0],13,47))
+genes.zero.map.zero.hit <- genes.zero.map.zero.hit[genes.zero.map.zero.hit %in% genes.zero.map]
+
+#why do these exist?  one hit but poor mapQ?  check to see if they are correct...
+genes.zero.map.one.hit <- unique(substr(reads$qname[reads$NH==1],13,47))
+genes.zero.map.one.hit <- genes.zero.map.one.hit[genes.zero.map.one.hit %in% genes.zero.map]
+
+genes.zero.map.multi.hit <- unique(substr(reads$qname[reads$NH>1],13,47))
+genes.zero.map.multi.hit <- genes.zero.map.multi.hit[genes.zero.map.multi.hit %in% genes.zero.map]
 
 
 #what about the other ones
