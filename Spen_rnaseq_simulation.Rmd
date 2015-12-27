@@ -137,6 +137,10 @@ names(lyc.transcripts) <- substr(names(lyc.transcripts),1,18)
 names(lyc.transcripts) <- ifelse(!is.na(match(names(lyc.transcripts),orthologs$LYC)),
                                  orthologs$PEN.LYC[match(names(lyc.transcripts),orthologs$LYC)],
                                  names(lyc.transcripts))
+pen.gene.length <- as.integer(nchar(pen.transcripts))
+names(pen.gene.length) <- names(pen.transcripts)
+lyc.gene.length <- as.integer(nchar(lyc.transcripts))
+names(lyc.gene.length) <- names(lyc.transcripts)
 ```
 
 Lets limit ourselves to genes where orthology is clear:
@@ -261,40 +265,31 @@ lyc.count.comparison.1 <- CompareCounts(lyc.known.counts, lyc.mapped.counts, tit
 Investigate...
 Lets take a look at the bam file and extract reads from a few genes with 0 mapped reads.  Skip chromosome 0
 ```{r}
-head(pen.count.comparison.1[pen.count.comparison.1$chrom=="01" & pen.count.comparison.1$count.mapped==0,],n=20)
 reads <- scanBam(file="spen_sim_1/STAR_1Aligned.sortedByCoord.out.bam",
                  param = ScanBamParam(what=scanBamWhat(),
                                       tag=c("NH","HI","AS","nM")))[[1]]
-#note: DO NOT convert reads to a data frame.  Uses lots of memory.
-reads <- c(reads[names(reads)!="tag"],reads$tag)
-lapply(reads, head)
-#pull the reads that should have mapped out into new list
+#note: DO NOT directly convert reads to a data frame.  Uses lots of memory.  instead remove the very large reads column.  See below.
+reads <- c(reads[names(reads)!="tag"],reads$tag) #unpack each element of reads$tag and add it to reads
+
+#add an element indicating whether or not the read came from a gene with no reads mapping to the pen version
 genes.zero.map <- pen.count.comparison.1$id[pen.count.comparison.1$count.known>0 & pen.count.comparison.1$count.mapped==0]
 reads$gene <- unlist(strsplit(reads$qname,";"))[c(FALSE,TRUE,FALSE,FALSE)]
 lapply(reads, head)
-reads$zero.map <- reads$gene %in% genes.zero.map
-#reads.zero <- lapply(reads,function(x) x[reads$gene %in% genes.zero.map])
-table(reads$flag,reads$zero.map)
-table(reads$NH,reads$zero.map) #number of hits
+reads$pen.zero.map <- reads$gene %in% genes.zero.map
 
-reads.df <- with(reads,data.frame(flag,cigar,NH,HI,AS,nM,gene,zero.map),stringsAsFactors=FALSE)
+table(reads$flag,reads$pen.zero.map)
+table(reads$NH,reads$pen.zero.map) #number of hits
+
+reads.df <- with(reads,data.frame(flag,cigar,NH,HI,AS,nM,gene,pen.zero.map,stringsAsFactors=FALSE))
 
 reads.df$multimap <- reads.df$NH>1
+
+reads.df$pen.gene.length <- pen.gene.length[reads.df$gene]
+reads.df$lyc.gene.length <- lyc.gene.length[reads.df$gene]
 
 ggplot(reads.df,aes(x=as.factor(NH),y=nM,group=NH)) + geom_point(stat="sum") + scale_size(breaks=seq(0,1,.1),range=c(1,15))
 
 #TODO: What is the length of the predicted transcripts?
-
-genes.zero.map.zero.hit <- unique(substr(reads$qname[reads$NH==0],13,47))
-genes.zero.map.zero.hit <- genes.zero.map.zero.hit[genes.zero.map.zero.hit %in% genes.zero.map]
-
-#why do these exist?  one hit but poor mapQ?  check to see if they are correct...
-genes.zero.map.one.hit <- unique(substr(reads$qname[reads$NH==1],13,47))
-genes.zero.map.one.hit <- genes.zero.map.one.hit[genes.zero.map.one.hit %in% genes.zero.map]
-
-genes.zero.map.multi.hit <- unique(substr(reads$qname[reads$NH>1],13,47))
-genes.zero.map.multi.hit <- genes.zero.map.multi.hit[genes.zero.map.multi.hit %in% genes.zero.map]
-
 
 #what about the other ones
 
