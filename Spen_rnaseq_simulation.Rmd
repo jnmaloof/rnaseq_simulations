@@ -281,13 +281,7 @@ reads.df <- with(reads,data.frame(flag,cigar,NH,HI,AS,nM,gene,zero.map),stringsA
 
 reads.df$multimap <- reads.df$NH>1
 
-ggplot(reads.df,aes(x=nM,color=multimap,fill=multimap)) + geom_density(alpha=.5)
-
-ggplot(reads.df,aes(x=multimap,y=nM,color=multimap,fill=multimap)) + geom_violin()
-
-ggplot(reads.df,aes(x=as.factor(NH),y=nM)) + geom_boxplot()
-
-ggplot(reads.df[reads.df$NH<2,],aes(x=as.factor(NH),y=nM)) + geom_violin()
+ggplot(reads.df,aes(x=as.factor(NH),y=nM,group=NH)) + geom_point(stat="sum") + scale_size(breaks=seq(0,1,.1),range=c(1,15))
 
 #TODO: What is the length of the predicted transcripts?
 
