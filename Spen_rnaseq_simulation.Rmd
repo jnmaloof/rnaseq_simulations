@@ -100,7 +100,16 @@ CompareCounts <- function(known.counts,mapped.counts, title= NULL, plot = TRUE, 
             facet_wrap(~ chrom) + 
             ggtitle(paste(title,"\nCorrelation:", round(read.correlation,3))))
   }
-  if(return.merged.table) return(count.comparison)
+  if(return.merged.table) {
+    count.comparison$count.diff.known.mapped <- count.comparison$count.known - count.comparison$count.mapped
+        count.comparison$count.ratio.known.mapped <- count.comparison$count.known / count.comparison$count.mapped
+    count.comparison$pen.gene.length <- pen.gene.length[count.comparison$id]
+    count.comparison$lyc.gene.length <- lyc.gene.length[count.comparison$id]
+    count.comparison$gene.length.diff.pen.lyc <- count.comparison$pen.gene.length - count.comparison$lyc.gene.length
+    count.comparison$gene.length.ratio.pen.lyc <- count.comparison$pen.gene.length / count.comparison$lyc.gene.length
+    
+    return(count.comparison)
+  }
 }
 ```
 
@@ -269,6 +278,7 @@ reads <- scanBam(file="spen_sim_1/STAR_1Aligned.sortedByCoord.out.bam",
                  param = ScanBamParam(what=scanBamWhat(),
                                       tag=c("NH","HI","AS","nM")))[[1]]
 #note: DO NOT directly convert reads to a data frame.  Uses lots of memory.  instead remove the very large reads column.  See below.
+
 reads <- c(reads[names(reads)!="tag"],reads$tag) #unpack each element of reads$tag and add it to reads
 
 #add an element indicating whether or not the read came from a gene with no reads mapping to the pen version
@@ -287,9 +297,66 @@ reads.df$multimap <- reads.df$NH>1
 reads.df$pen.gene.length <- pen.gene.length[reads.df$gene]
 reads.df$lyc.gene.length <- lyc.gene.length[reads.df$gene]
 
+reads.df$pen.lyc.gene.length.dif <- reads.df$pen.gene.length - reads.df$lyc.gene.length
+
+reads.df$pen.lyc.gene.length.ratio <- reads.df$pen.gene.length / reads.df$lyc.gene.length
+
 ggplot(reads.df,aes(x=as.factor(NH),y=nM,group=NH)) + geom_point(stat="sum") + scale_size(breaks=seq(0,1,.1),range=c(1,15))
 
-#TODO: What is the length of the predicted transcripts?
+ggplot(reads.df,aes(x=as.factor(NH),y=pen.gene.length,fill=pen.zero.map)) + geom_violin()
+
+ggplot(reads.df,aes(x=as.factor(NH),y=lyc.gene.length,fill=pen.zero.map)) + geom_violin()
+
+ggplot(reads.df,aes(x=as.factor(NH),y=pen.gene.length)) + geom_violin()
+
+ggplot(reads.df,aes(x=as.factor(NH),y=pen.lyc.gene.length.ratio,fill=multimap)) + geom_violin()
+
+ggplot(reads.df,aes(x=pen.zero.map,y=pen.gene.length,fill=multimap)) + geom_boxplot()
+
+ggplot(reads.df,aes(x=pen.zero.map,y=pen.lyc.gene.length.ratio,fill=multimap)) + geom_violin()
+
+#maybe better to look at this gene_length thing on a per gene basis
+
+ggplot(pen.count.comparison.1,aes(x=gene.length.diff.pen.lyc,y=count.ratio.known.mapped)) + geom_point(alpha=0.1) + scale_y_log10() + scale_x_log10(breaks=c(1,10,100,200,300,500,1000))
+
+ggplot(pen.count.comparison.1,aes(x=gene.length.ratio.pen.lyc,y=count.ratio.known.mapped))  + scale_y_log10() + scale_x_log10(breaks=c(.1,.5,seq(1,2,.2),3,5,10)) + geom_hline(yintercept=1,color="blue") + geom_vline(xintercept=1,color="blue") + geom_point(alpha=.1)
+
+#reasonable cutoffs might be a gene.length.ratio > 1.3 or a gene length difference of > 300
+
+pen.count.comparison.1.cutoff1.3 <- pen.count.comparison.1[pen.count.comparison.1$gene.length.ratio.pen.lyc < 1.3,]
+nrow(pen.count.comparison.1)
+nrow(pen.count.comparison.1.cutoff1.3)
+with(pen.count.comparison.1.cutoff1.3,cor(count.known,count.mapped))
+
+pen.count.comparison.1.cutoff300 <- pen.count.comparison.1[pen.count.comparison.1$gene.length.diff.pen.lyc < 300,]
+nrow(pen.count.comparison.1)
+nrow(pen.count.comparison.1.cutoff300)
+with(pen.count.comparison.1.cutoff300,cor(count.known,count.mapped))
+
+pen.count.comparison.1.cutoff300.1.3 <- pen.count.comparison.1[pen.count.comparison.1$gene.length.diff.pen.lyc < 300 & pen.count.comparison.1$gene.length.ratio.pen.lyc < 1.3,]
+nrow(pen.count.comparison.1)
+nrow(pen.count.comparison.1.cutoff300.1.3)
+with(pen.count.comparison.1.cutoff300.1.3,cor(count.known,count.mapped))
+
+length.cutoff.plot.data <- as.data.frame(t(sapply(seq(0,max(pen.count.comparison.1$gene.length.diff.pen.lyc),50),function(x) 
+  with(
+    pen.count.comparison.1[pen.count.comparison.1$gene.length.diff.pen.lyc <= x ,],
+    c(cutoff=x,genes=length(count.known),correlation=cor(count.known,count.mapped))))))
+length.cutoff.plot.data$type <- "difference"
+
+
+ratio.cutoff.plot.data <- as.data.frame(t(sapply(seq(1,max(pen.count.comparison.1$gene.length.ratio.pen.lyc),.1),function(x) 
+  with(
+    pen.count.comparison.1[pen.count.comparison.1$gene.length.ratio.pen.lyc <= x ,],
+    c(cutoff=x,genes=length(count.known),correlation=cor(count.known,count.mapped))))))
+ratio.cutoff.plot.data$type <- "ratio"
+
+combined.cutoff.plot.data <-rbind(length.cutoff.plot.data,ratio.cutoff.plot.data)
+
+ggplot(combined.cutoff.plot.data,aes(x=genes,y=correlation,color=type)) + geom_line() 
+
+ggplot(length.cutoff.plot.data,aes(x=genes,y=correlation,label=cutoff)) + geom_line() + geom_text(aes(label=cutoff),size=2.5,vjust=-1,hjust=-.3) 
+
 
 #what about the other ones
 
