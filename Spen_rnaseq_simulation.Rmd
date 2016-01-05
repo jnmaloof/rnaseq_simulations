@@ -43,6 +43,7 @@ library(polyester)
 library(Biostrings)
 library(ggplot2)
 library(Rsamtools)
+library(rtracklayer)
 setwd("~/Documents/Lab Notebook support/2015/rnaseq_simulations")
 ```
 
@@ -100,7 +101,16 @@ CompareCounts <- function(known.counts,mapped.counts, title= NULL, plot = TRUE, 
             facet_wrap(~ chrom) + 
             ggtitle(paste(title,"\nCorrelation:", round(read.correlation,3))))
   }
-  if(return.merged.table) return(count.comparison)
+  if(return.merged.table) {
+    count.comparison$count.diff.known.mapped <- count.comparison$count.known - count.comparison$count.mapped
+        count.comparison$count.ratio.known.mapped <- count.comparison$count.known / count.comparison$count.mapped
+    count.comparison$pen.gene.length <- pen.gene.length[count.comparison$id]
+    count.comparison$lyc.gene.length <- lyc.gene.length[count.comparison$id]
+    count.comparison$gene.length.diff.pen.lyc <- count.comparison$pen.gene.length - count.comparison$lyc.gene.length
+    count.comparison$gene.length.ratio.pen.lyc <- count.comparison$pen.gene.length / count.comparison$lyc.gene.length
+    
+    return(count.comparison)
+  }
 }
 ```
 
@@ -137,6 +147,10 @@ names(lyc.transcripts) <- substr(names(lyc.transcripts),1,18)
 names(lyc.transcripts) <- ifelse(!is.na(match(names(lyc.transcripts),orthologs$LYC)),
                                  orthologs$PEN.LYC[match(names(lyc.transcripts),orthologs$LYC)],
                                  names(lyc.transcripts))
+pen.gene.length <- as.integer(nchar(pen.transcripts))
+names(pen.gene.length) <- names(pen.transcripts)
+lyc.gene.length <- as.integer(nchar(lyc.transcripts))
+names(lyc.gene.length) <- names(lyc.transcripts)
 ```
 
 Lets limit ourselves to genes where orthology is clear:
@@ -261,26 +275,142 @@ lyc.count.comparison.1 <- CompareCounts(lyc.known.counts, lyc.mapped.counts, tit
 Investigate...
 Lets take a look at the bam file and extract reads from a few genes with 0 mapped reads.  Skip chromosome 0
 ```{r}
-head(pen.count.comparison.1[pen.count.comparison.1$chrom=="01" & pen.count.comparison.1$count.mapped==0,],n=20)
 reads <- scanBam(file="spen_sim_1/STAR_1Aligned.sortedByCoord.out.bam",
                  param = ScanBamParam(what=scanBamWhat(),
                                       tag=c("NH","HI","AS","nM")))[[1]]
-#note: DO NOT convert reads to a data frame.  Uses lots of memory.
-reads <- c(reads[names(reads)!="tag"],reads$tag)
-lapply(reads, head)
-#pull the reads that should have mapped out into new list
-zero_map_genes <- pen_count_comparison$id[pen_count_comparison$count.known>0 & pen_count_comparison$count.mapped==0]
+#note: DO NOT directly convert reads to a data frame.  Uses lots of memory.  instead remove the very large reads column.  See below.
+
+reads <- c(reads[names(reads)!="tag"],reads$tag) #unpack each element of reads$tag and add it to reads
+
+#add an element indicating whether or not the read came from a gene with no reads mapping to the pen version
+genes.zero.map <- pen.count.comparison.1$id[pen.count.comparison.1$count.known>0 & pen.count.comparison.1$count.mapped==0]
 reads$gene <- unlist(strsplit(reads$qname,";"))[c(FALSE,TRUE,FALSE,FALSE)]
 lapply(reads, head)
-reads_zero <- lapply(reads,function(x) x[reads$gene %in% zero_map_genes])
-lapply(reads_zero,head,20)
-table(reads_zero$flag)
-hist(reads_zero$NH) #number of hits
-hist(reads$NH)
-#so a fair number of the reads from genes with zero counts are multi-mappers.
+reads$pen.zero.map <- reads$gene %in% genes.zero.map
 
-#what about the other ones
+table(reads$flag,reads$pen.zero.map)
+table(reads$NH,reads$pen.zero.map) #number of hits
 
-reads_zero_1hit <- lapply(reads_zero,function(x) x[reads_zero$NH==1])
-lapply(reads_zero_1hit,head,10)
+reads.df <- with(reads,data.frame(qname,rname,pos,qwidth,flag,cigar,NH,HI,AS,nM,gene,pen.zero.map,stringsAsFactors=FALSE))
+reads.df$gene.lyc <- substr(reads.df$gene,18,38)
+  
+reads.df$multimap <- reads.df$NH>1
+
+reads.df$pen.gene.length <- pen.gene.length[reads.df$gene]
+reads.df$lyc.gene.length <- lyc.gene.length[reads.df$gene]
+
+reads.df$pen.lyc.gene.length.dif <- reads.df$pen.gene.length - reads.df$lyc.gene.length
+
+reads.df$pen.lyc.gene.length.ratio <- reads.df$pen.gene.length / reads.df$lyc.gene.length
+
+ggplot(reads.df,aes(x=as.factor(NH),y=nM,group=NH)) + geom_point(stat="sum") + scale_size(breaks=seq(0,1,.1),range=c(1,15))
+
+ggplot(reads.df,aes(x=as.factor(NH),y=pen.gene.length,fill=pen.zero.map)) + geom_violin()
+
+ggplot(reads.df,aes(x=as.factor(NH),y=lyc.gene.length,fill=pen.zero.map)) + geom_violin()
+
+ggplot(reads.df,aes(x=as.factor(NH),y=pen.gene.length)) + geom_violin()
+
+ggplot(reads.df,aes(x=as.factor(NH),y=pen.lyc.gene.length.ratio,fill=multimap)) + geom_violin()
+
+ggplot(reads.df,aes(x=pen.zero.map,y=pen.gene.length,fill=multimap)) + geom_boxplot()
+
+ggplot(reads.df,aes(x=pen.zero.map,y=pen.lyc.gene.length.ratio,fill=multimap)) + geom_violin()
+
+#maybe better to look at this gene_length thing on a per gene basis
+
+ggplot(pen.count.comparison.1,aes(x=gene.length.diff.pen.lyc,y=count.ratio.known.mapped)) + geom_point(alpha=0.1) + scale_y_log10() + scale_x_log10(breaks=c(1,10,100,200,300,500,1000))
+
+ggplot(pen.count.comparison.1,aes(x=gene.length.ratio.pen.lyc,y=count.ratio.known.mapped))  + scale_y_log10() + scale_x_log10(breaks=c(.1,.5,seq(1,2,.2),3,5,10)) + geom_hline(yintercept=1,color="blue") + geom_vline(xintercept=1,color="blue") + geom_point(alpha=.1)
+
+#reasonable cutoffs might be a gene.length.ratio > 1.3 or a gene length difference of > 300
+
+pen.count.comparison.1.cutoff1.3 <- pen.count.comparison.1[pen.count.comparison.1$gene.length.ratio.pen.lyc < 1.3,]
+nrow(pen.count.comparison.1)
+nrow(pen.count.comparison.1.cutoff1.3)
+with(pen.count.comparison.1.cutoff1.3,cor(count.known,count.mapped))
+
+pen.count.comparison.1.cutoff300 <- pen.count.comparison.1[pen.count.comparison.1$gene.length.diff.pen.lyc < 300,]
+nrow(pen.count.comparison.1)
+nrow(pen.count.comparison.1.cutoff300)
+with(pen.count.comparison.1.cutoff300,cor(count.known,count.mapped))
+
+pen.count.comparison.1.cutoff300.1.3 <- pen.count.comparison.1[pen.count.comparison.1$gene.length.diff.pen.lyc < 300 & pen.count.comparison.1$gene.length.ratio.pen.lyc < 1.3,]
+nrow(pen.count.comparison.1)
+nrow(pen.count.comparison.1.cutoff300.1.3)
+with(pen.count.comparison.1.cutoff300.1.3,cor(count.known,count.mapped))
+
+length.cutoff.plot.data <- as.data.frame(t(sapply(seq(0,max(pen.count.comparison.1$gene.length.diff.pen.lyc),50),function(x) 
+  with(
+    pen.count.comparison.1[pen.count.comparison.1$gene.length.diff.pen.lyc <= x ,],
+    c(cutoff=x,genes=length(count.known),correlation=cor(count.known,count.mapped))))))
+length.cutoff.plot.data$type <- "difference"
+
+
+ratio.cutoff.plot.data <- as.data.frame(t(sapply(seq(1,max(pen.count.comparison.1$gene.length.ratio.pen.lyc),.1),function(x) 
+  with(
+    pen.count.comparison.1[pen.count.comparison.1$gene.length.ratio.pen.lyc <= x ,],
+    c(cutoff=x,genes=length(count.known),correlation=cor(count.known,count.mapped))))))
+ratio.cutoff.plot.data$type <- "ratio"
+
+combined.cutoff.plot.data <-rbind(length.cutoff.plot.data,ratio.cutoff.plot.data)
+
+ggplot(combined.cutoff.plot.data,aes(x=genes,y=correlation,color=type)) + geom_line() 
+
+ggplot(length.cutoff.plot.data,aes(x=genes,y=correlation,label=cutoff)) + geom_line() + geom_text(aes(label=cutoff),size=2.5,vjust=-1,hjust=-.3) 
 ```
+
+how many reads map to the wrong gene?
+
+note: there is ranges data for each read mapping.  So I can compare that to the GTF ranges.
+```{r mismapping}
+lyc.transcript.gr <- import("~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_gene_models.gff3",feature.type="mRNA")
+reads.df.map <- na.omit(reads.df)
+reads.gr <- with(reads.df.map,GRanges(seqnames=rname,
+                    ranges = IRanges(start=pos,
+                                     width = qwidth, #note that this is not precisely correct because of introns,etc
+                                     names=qname)))
+hits <- findOverlaps(reads.gr,lyc.transcript.gr,ignore.strand=TRUE)
+sum(reads.df.map$gene.lyc[queryHits(hits)] != lyc.transcript.gr$Name[subjectHits(hits)]) / length(hits)
+reads.df.map.single <- reads.df.map[reads.df.map$NH==1,]
+reads.gr.single <- with(reads.df.map.single,GRanges(seqnames=rname,
+                    ranges = IRanges(start=pos,
+                                     width = qwidth, #note that this is not precisely correct because of introns,etc
+                                     names=qname)))
+hits.single <- findOverlaps(reads.gr.single,lyc.transcript.gr,ignore.strand=TRUE)
+sum(reads.df.map.single$gene.lyc[queryHits(hits.single)] != lyc.transcript.gr$Name[subjectHits(hits.single)]) / length(hits.single)
+
+reads.df.map.single.overlap <- reads.df.map.single[queryHits(hits.single),] #only keep reads that overlap a transcript
+
+reads.df.map.single.overlap$gene.mapped.to <- lyc.transcript.gr$Name[subjectHits(hits.single)]
+
+#remove chromosome zero
+
+reads.df.map.single.overlap <- reads.df.map.single.overlap[!grepl("Solyc00g",paste(reads.df.map.single.overlap$gene.lyc,reads.df.map.single.overlap$gene.mapped.to)),] #not very different
+
+with(reads.df.map.single.overlap,sum(gene.lyc!=gene.mapped.to)/length(gene.lyc))
+
+#are reads represented more than once?
+length(unique(reads.df.map.single.overlap$qname))/nrow(reads.df.map.single.overlap)
+#yes.  So reads are overlapping with multiple genes.  Presumably this is due to overlaping genes in the annotation.
+
+reads.df.map.single.overlap$chrom.lyc <- substr(reads.df.map.single.overlap$gene.lyc,6,8)
+reads.df.map.single.overlap$chrom.mapped.to <- substr(reads.df.map.single.overlap$gene.mapped.to,6,8)
+
+
+reads.df.map.single.overlap$mismap <- reads.df.map.single.overlap$gene.lyc != reads.df.map.single.overlap$gene.mapped.to
+head(reads.df.map.single.overlap,50)
+head(reads.df.map.single.overlap[reads.df.map.single.overlap$mismap,c("gene.lyc","gene.mapped.to")],50)
+#yes the overlapping annotaiton seems to explain some of it.  Can check more
+reads.df.map.single.overlap <- within(reads.df.map.single.overlap, mapnear <- 
+                                        (abs(as.numeric(substr(gene.lyc,9,14)) - as.numeric(substr(gene.mapped.to,9,14))) < 40) & 
+                                        chrom.lyc == chrom.mapped.to)
+head(reads.df.map.single.overlap[reads.df.map.single.overlap$mismap,c("gene.lyc","gene.mapped.to","mapnear")],100)
+with(reads.df.map.single.overlap,sum(mapnear & mismap) / sum(mismap))
+
+#so if we get rid of the "mapnear" mismaps how many mismaps are left?
+sum(reads.df.map.single.overlap$mismap[!reads.df.map.single.overlap$mapnear]) / nrow(reads.df.map.single.overlap)
+```
+
+Next steps: some comparative genomic alignments for the genes that aren't behaving well.  (ideas: BLAT produces PSL files and IGV can read those.  Or use STAR.  Or use BLAST and the blast2sam).
+
