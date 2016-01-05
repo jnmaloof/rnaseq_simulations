@@ -43,6 +43,7 @@ library(polyester)
 library(Biostrings)
 library(ggplot2)
 library(Rsamtools)
+library(rtracklayer)
 setwd("~/Documents/Lab Notebook support/2015/rnaseq_simulations")
 ```
 
@@ -290,8 +291,9 @@ reads$pen.zero.map <- reads$gene %in% genes.zero.map
 table(reads$flag,reads$pen.zero.map)
 table(reads$NH,reads$pen.zero.map) #number of hits
 
-reads.df <- with(reads,data.frame(flag,cigar,NH,HI,AS,nM,gene,pen.zero.map,stringsAsFactors=FALSE))
-
+reads.df <- with(reads,data.frame(qname,rname,pos,qwidth,flag,cigar,NH,HI,AS,nM,gene,pen.zero.map,stringsAsFactors=FALSE))
+reads.df$gene.lyc <- substr(reads.df$gene,18,38)
+  
 reads.df$multimap <- reads.df$NH>1
 
 reads.df$pen.gene.length <- pen.gene.length[reads.df$gene]
@@ -356,10 +358,59 @@ combined.cutoff.plot.data <-rbind(length.cutoff.plot.data,ratio.cutoff.plot.data
 ggplot(combined.cutoff.plot.data,aes(x=genes,y=correlation,color=type)) + geom_line() 
 
 ggplot(length.cutoff.plot.data,aes(x=genes,y=correlation,label=cutoff)) + geom_line() + geom_text(aes(label=cutoff),size=2.5,vjust=-1,hjust=-.3) 
-
-
-#what about the other ones
-
-reads_zero_1hit <- lapply(reads_zero,function(x) x[reads_zero$NH==1])
-lapply(reads_zero_1hit,head,10)
 ```
+
+how many reads map to the wrong gene?
+
+note: there is ranges data for each read mapping.  So I can compare that to the GTF ranges.
+```{r mismapping}
+lyc.transcript.gr <- import("~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_gene_models.gff3",feature.type="mRNA")
+reads.df.map <- na.omit(reads.df)
+reads.gr <- with(reads.df.map,GRanges(seqnames=rname,
+                    ranges = IRanges(start=pos,
+                                     width = qwidth, #note that this is not precisely correct because of introns,etc
+                                     names=qname)))
+hits <- findOverlaps(reads.gr,lyc.transcript.gr,ignore.strand=TRUE)
+sum(reads.df.map$gene.lyc[queryHits(hits)] != lyc.transcript.gr$Name[subjectHits(hits)]) / length(hits)
+reads.df.map.single <- reads.df.map[reads.df.map$NH==1,]
+reads.gr.single <- with(reads.df.map.single,GRanges(seqnames=rname,
+                    ranges = IRanges(start=pos,
+                                     width = qwidth, #note that this is not precisely correct because of introns,etc
+                                     names=qname)))
+hits.single <- findOverlaps(reads.gr.single,lyc.transcript.gr,ignore.strand=TRUE)
+sum(reads.df.map.single$gene.lyc[queryHits(hits.single)] != lyc.transcript.gr$Name[subjectHits(hits.single)]) / length(hits.single)
+
+reads.df.map.single.overlap <- reads.df.map.single[queryHits(hits.single),] #only keep reads that overlap a transcript
+
+reads.df.map.single.overlap$gene.mapped.to <- lyc.transcript.gr$Name[subjectHits(hits.single)]
+
+#remove chromosome zero
+
+reads.df.map.single.overlap <- reads.df.map.single.overlap[!grepl("Solyc00g",paste(reads.df.map.single.overlap$gene.lyc,reads.df.map.single.overlap$gene.mapped.to)),] #not very different
+
+with(reads.df.map.single.overlap,sum(gene.lyc!=gene.mapped.to)/length(gene.lyc))
+
+#are reads represented more than once?
+length(unique(reads.df.map.single.overlap$qname))/nrow(reads.df.map.single.overlap)
+#yes.  So reads are overlapping with multiple genes.  Presumably this is due to overlaping genes in the annotation.
+
+reads.df.map.single.overlap$chrom.lyc <- substr(reads.df.map.single.overlap$gene.lyc,6,8)
+reads.df.map.single.overlap$chrom.mapped.to <- substr(reads.df.map.single.overlap$gene.mapped.to,6,8)
+
+
+reads.df.map.single.overlap$mismap <- reads.df.map.single.overlap$gene.lyc != reads.df.map.single.overlap$gene.mapped.to
+head(reads.df.map.single.overlap,50)
+head(reads.df.map.single.overlap[reads.df.map.single.overlap$mismap,c("gene.lyc","gene.mapped.to")],50)
+#yes the overlapping annotaiton seems to explain some of it.  Can check more
+reads.df.map.single.overlap <- within(reads.df.map.single.overlap, mapnear <- 
+                                        (abs(as.numeric(substr(gene.lyc,9,14)) - as.numeric(substr(gene.mapped.to,9,14))) < 40) & 
+                                        chrom.lyc == chrom.mapped.to)
+head(reads.df.map.single.overlap[reads.df.map.single.overlap$mismap,c("gene.lyc","gene.mapped.to","mapnear")],100)
+with(reads.df.map.single.overlap,sum(mapnear & mismap) / sum(mismap))
+
+#so if we get rid of the "mapnear" mismaps how many mismaps are left?
+sum(reads.df.map.single.overlap$mismap[!reads.df.map.single.overlap$mapnear]) / nrow(reads.df.map.single.overlap)
+```
+
+Next steps: some comparative genomic alignments for the genes that aren't behaving well.  (ideas: BLAT produces PSL files and IGV can read those.  Or use STAR.  Or use BLAST and the blast2sam).
+
