@@ -410,7 +410,23 @@ with(reads.df.map.single.overlap,sum(mapnear & mismap) / sum(mismap))
 
 #so if we get rid of the "mapnear" mismaps how many mismaps are left?
 sum(reads.df.map.single.overlap$mismap[!reads.df.map.single.overlap$mapnear]) / nrow(reads.df.map.single.overlap)
+
+#save.image("rnaseqSim.Rdata")
 ```
 
 Next steps: some comparative genomic alignments for the genes that aren't behaving well.  (ideas: BLAT produces PSL files and IGV can read those.  Or use STAR.  Or use BLAST and the blast2sam).
+
+```{r BLAT install, eval=FALSE, engine='bash'}
+brew install blat
+```
+
+```{r run BLAT, engine='bash', eval=FALSE}
+blat ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa ~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot_orthlogs_only.fa -maxIntron=20000 penCDS_to_lycGENME.psl
+```
+
+Now look in IGV (Note: will need to use IGVtools to sort and index the .psl file)
+
+```{r}
+head(reads.df.map.single.overlap[reads.df.map.single.overlap$mismap,c("qname","gene.lyc","gene.mapped.to","mapnear")],100)
+```
 
