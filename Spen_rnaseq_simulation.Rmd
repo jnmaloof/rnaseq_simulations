@@ -425,6 +425,16 @@ brew install blat
 blat ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa ~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot_orthlogs_only.fa -maxIntron=20000 penCDS_to_lycGENME.psl
 ```
 
+Map _real_ reads as comparision
+```{r map_real,eval=FALSE}
+RunStar(fasta = "/Volumes/temp-o-matic/temp_SolRAID_restore/Solexa_runs_Data/Filtered_fastq_by_seedling_exp/merged_files/PEN.seedlings.fq",
+        prefix = "STAR_1",
+        dir = "spen_real",
+        n=12,
+        param.file = "../STAR.params.whitney.1")
+```
+
+
 Now look in IGV (Note: will need to use IGVtools to sort and index the .psl file)
 
 ```{r}
