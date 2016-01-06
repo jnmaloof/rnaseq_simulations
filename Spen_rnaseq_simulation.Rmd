@@ -430,3 +430,6 @@ Now look in IGV (Note: will need to use IGVtools to sort and index the .psl file
 head(reads.df.map.single.overlap[reads.df.map.single.overlap$mismap,c("qname","gene.lyc","gene.mapped.to","mapnear")],100)
 ```
 
+### 5 examples of genes with high mismapping
+
+### 5 examples of genes with zero mapping
