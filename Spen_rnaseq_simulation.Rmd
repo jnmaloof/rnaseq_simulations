@@ -439,9 +439,16 @@ Now look in IGV (Note: will need to use IGVtools to sort and index the .psl file
 
 ```{r}
 head(reads.df.map.single.overlap[reads.df.map.single.overlap$mismap,c("qname","gene.lyc","gene.mapped.to","mapnear")],100)
+sort(table(reads.df.map.single.overlap$gene.lyc[reads.df.map.single.overlap$mismap]))
 ```
 
-### 5 examples of genes with high mismapping
+### 5 examples of genes with mismapping
+
+Solyc02g090930.2.1 (12)
+Solyc04g072480.2.1 (30)
+Solyc03g051930.2.1 (70)
+Solyc02g079850.2.1 (150)
+Solyc01g110960.2.1 (497)
 
 
 
