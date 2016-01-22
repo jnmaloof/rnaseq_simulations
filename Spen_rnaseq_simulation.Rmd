@@ -444,11 +444,26 @@ sort(table(reads.df.map.single.overlap$gene.lyc[reads.df.map.single.overlap$mism
 
 ### 5 examples of genes with mismapping
 
-Solyc02g090930.2.1 (12)
-Solyc04g072480.2.1 (30)
-Solyc03g051930.2.1 (70)
-Solyc02g079850.2.1 (150)
-Solyc01g110960.2.1 (497)
-
+Solyc02g090930.2.1 (12): Tandem Repeat with Solyc02g090940.2.1
+Solyc04g072480.2.1 (30): Nothing obviously strange
+Solyc03g051930.2.1 (70): PEN gene spans two LYC genes
+Solyc02g079850.2.1 (150): PEN gene spans two LYC genes
+Solyc01g110960.2.1 (497): Much Confusion
 
 ### 5 examples of genes with zero mapping
+
+```{r}
+pen.count.comparison.1.cutoff300.1.3[pen.count.comparison.1.cutoff300.1.3$count.ratio==Inf,c("lyc.id","count.known","gene.length.ratio.pen.lyc")]
+```
+
+Solyc01g010050.2: Two overlapping LYC transcripts
+Solyc01g060020.2: Multiple overlapping LYC transcripts
+Solyc05g023780.1: Repetitive region
+Solyc08g015710.1: Very small region of homology
+Solyc11g056540.1: BLAT did not find a match
+
+NEXT STEP: 
+* ELIMINATE GENES WITH OVERLAPPING LYC TO LYC OR PEN TO LYC TRANSCRIPTS.  
+* ALSO TRY DIFFERENT READ COUNTING METHOD
+* USE BLAT TO ELIMINATE TRANSCRIPTS WITH POOR HOMOLOGY
+
