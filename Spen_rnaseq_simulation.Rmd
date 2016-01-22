@@ -435,7 +435,7 @@ RunStar(fasta = "/Volumes/temp-o-matic/temp_SolRAID_restore/Solexa_runs_Data/Fil
 ```
 
 
-Now look in IGV (Note: will need to use IGVtools to sort and index the .psl file)
+Now look in IGV (Note: Need to use IGVtools to sort and index the .psl file)
 
 ```{r}
 head(reads.df.map.single.overlap[reads.df.map.single.overlap$mismap,c("qname","gene.lyc","gene.mapped.to","mapnear")],100)
@@ -449,7 +449,6 @@ Solyc04g072480.2.1 (30)
 Solyc03g051930.2.1 (70)
 Solyc02g079850.2.1 (150)
 Solyc01g110960.2.1 (497)
-
 
 
 ### 5 examples of genes with zero mapping
