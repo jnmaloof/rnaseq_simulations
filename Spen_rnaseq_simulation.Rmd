@@ -45,6 +45,7 @@ library(ggplot2)
 library(Rsamtools)
 library(rtracklayer)
 library(Rsubread)
+library(R.utils)
 setwd("~/Documents/Lab Notebook support/2015/rnaseq_simulations")
 ```
 
@@ -87,12 +88,20 @@ GetMappedCounts <- function(prefix,
     mapped_counts$ID <- sub("gene:","",mapped_counts$ID,fixed=TRUE)
     return(mapped_counts)
   }
-  if(type=="STAR-htseq") {
-    mapped_counts <- system(paste("htseq-count --format=bam --stranded=no --idattr=Parent",
-                 file.path(dir,paste(prefix,"Aligned.sortedByCoord.out.bam",sep="")),
-                 gff),
-                 intern=TRUE)
-    system(paste("ls -lh", file.path(dir,paste(prefix,"Aligned.sortedByCoord.out.bam",sep=""))))
+  if(type=="STAR-featureCounts") {
+    mapped_counts_list <- featureCounts(
+      files=file.path(dir,paste(prefix,"Aligned.sortedByCoord.out.bam",sep="")),
+      annot.ext=getAbsolutePath(gff,expandTilde = TRUE),
+      isGTFAnnotationFile = TRUE,
+      GTF.attrType = "Parent",
+      useMetaFeatures = TRUE,
+      allowMultiOverlap = TRUE,
+      nthreads=2)
+    mapped_counts <- mapped_counts_list$counts
+    colnames(mapped_counts) <- c("ID","count")
+    mapped_counts$ID <- sub("mRNA:","",mapped_counts$ID,fixed=TRUE)
+    return(mapped_counts)
+  }
   stop(paste("Unknown result type:",type))}
 ```
 
