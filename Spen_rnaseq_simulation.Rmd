@@ -44,6 +44,7 @@ library(Biostrings)
 library(ggplot2)
 library(Rsamtools)
 library(rtracklayer)
+library(Rsubread)
 setwd("~/Documents/Lab Notebook support/2015/rnaseq_simulations")
 ```
 
@@ -72,7 +73,11 @@ RunStar <- function(fasta, prefix, param.file = "../STAR.params.royce.1", args =
 
 Function for retrieving mapped read counts per gene
 ```{r GetMappedCounts_function}
-GetMappedCounts <- function(prefix, dir=".", type="STAR") {
+GetMappedCounts <- function(prefix,
+                            dir=".",
+                            type="STAR",
+                            gff="~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_gene_models.gff3")
+  {
   #Get mapped counts from alignment output files
   if(type=="STAR") {
     file <- file.path(dir,paste(prefix,"ReadsPerGene.out.tab",sep=""))
@@ -82,6 +87,12 @@ GetMappedCounts <- function(prefix, dir=".", type="STAR") {
     mapped_counts$ID <- sub("gene:","",mapped_counts$ID,fixed=TRUE)
     return(mapped_counts)
   }
+  if(type=="STAR-htseq") {
+    mapped_counts <- system(paste("htseq-count --format=bam --stranded=no --idattr=Parent",
+                 file.path(dir,paste(prefix,"Aligned.sortedByCoord.out.bam",sep="")),
+                 gff),
+                 intern=TRUE)
+    system(paste("ls -lh", file.path(dir,paste(prefix,"Aligned.sortedByCoord.out.bam",sep=""))))
   stop(paste("Unknown result type:",type))}
 ```
 
