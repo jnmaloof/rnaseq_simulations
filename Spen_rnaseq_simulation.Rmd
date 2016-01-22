@@ -28,7 +28,6 @@ source("http://bioconductor.org/biocLite.R")
 biocLite("polyester")
 ```
 
-
 ### Install STAR (only needs to be done once)
 (NOTE THAT VERSION 2.5 IS NEEDED AND THIS IS NOT CURRENTLY IN HOMEBREW)
 ```{r install_STAR eval=FALSE, engine='bash'}
@@ -36,8 +35,7 @@ brew install rna-star
 brew install gcc5 
 ```
 
-### libraries, etc
-
+### load libraries and helper scripts
 ```{r}
 library(polyester)
 library(Biostrings)
@@ -50,13 +48,7 @@ setwd("~/Documents/Lab Notebook support/2015/rnaseq_simulations")
 source("Rnaseq_sim_helper_functions.R")
 ```
 
-
-### Define some useful functions
-
-
-
 ## Simluate reads (simple version)
-
 Load Spen and Slyc transcripts  
 Spen CDS fasta can be obtained from [SGN](ftp://ftp.solgenomics.net/genomes/Solanum_pennellii/annotations/)
 slyc fasta is also from [SGN](ftp://ftp.sgn.cornell.edu/genomes/Solanum_lycopersicum/annotation/ITAG2.4_release/)
@@ -201,8 +193,12 @@ We want to do:
 
 ### Load in mapped counts
 ```{r get_mapped_counts }
+#using the STAR built-in counter
 pen.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "spen_sim_1")
 lyc.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_sim_1")
+#using featureCounts from Rsubread
+pen.mapped.counts.featureCounts <- GetMappedCounts(prefix = "STAR_1", dir = "spen_sim_1", type="STAR-featureCounts")
+lyc.mapped.counts.featureCounts <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_sim_1", type="STAR-featureCounts")
 ```
 
 ### Comparison

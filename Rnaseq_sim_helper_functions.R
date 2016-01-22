@@ -46,8 +46,9 @@ GetMappedCounts <- function(prefix,
       useMetaFeatures = TRUE,
       allowMultiOverlap = TRUE,
       nthreads=2)
-    mapped_counts <- mapped_counts_list$counts
-    colnames(mapped_counts) <- c("ID","count")
+    mapped_counts <- data.frame(
+      ID=rownames(mapped_counts_list$counts),
+      count=mapped_counts_list$counts)
     mapped_counts$ID <- sub("mRNA:","",mapped_counts$ID,fixed=TRUE)
     return(mapped_counts)
   }
