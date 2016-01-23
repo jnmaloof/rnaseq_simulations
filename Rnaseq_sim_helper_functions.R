@@ -48,8 +48,12 @@ GetMappedCounts <- function(prefix,
       nthreads=2)
     mapped_counts <- data.frame(
       ID=rownames(mapped_counts_list$counts),
-      count=mapped_counts_list$counts)
-    mapped_counts$ID <- sub("mRNA:","",mapped_counts$ID,fixed=TRUE)
+      count=mapped_counts_list$counts[,1])
+    mapped_counts$ID <- substr(sub("mRNA:","",mapped_counts$ID,fixed=TRUE),1,16)
+    mapped_counts <- with(mapped_counts_list,{
+                            colnames(stat) <- c("ID","count")
+                            rbind(stat,mapped_counts)
+    })
     return(mapped_counts)
   }
   stop(paste("Unknown result type:",type))}

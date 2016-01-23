@@ -194,19 +194,23 @@ We want to do:
 ### Load in mapped counts
 ```{r get_mapped_counts }
 #using the STAR built-in counter
-pen.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "spen_sim_1")
-lyc.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_sim_1")
+pen.mapped.counts.STAR <- GetMappedCounts(prefix = "STAR_1", dir = "spen_sim_1")
+lyc.mapped.counts.STAR <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_sim_1")
 #using featureCounts from Rsubread
-pen.mapped.counts.featureCounts <- GetMappedCounts(prefix = "STAR_1", dir = "spen_sim_1", type="STAR-featureCounts")
-lyc.mapped.counts.featureCounts <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_sim_1", type="STAR-featureCounts")
+pen.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "spen_sim_1", type="STAR-featureCounts")
+lyc.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_sim_1", type="STAR-featureCounts")
 ```
 
 ### Comparison
 
 ```{r compare_spen1}
-pen.count.comparison.1 <- CompareCounts(pen.known.counts, pen.mapped.counts, title = "S. pen.  STAR mapped.  Default parameters")
-lyc.count.comparison.1 <- CompareCounts(lyc.known.counts, lyc.mapped.counts, title = "S. lyc.  STAR mapped.  Default parameters")
+pen.count.comparison.1.STAR <- CompareCounts(pen.known.counts, pen.mapped.counts.STAR, title = "S. pen.  STAR mapped.  Default parameters")
+lyc.count.comparison.1.STAR <- CompareCounts(lyc.known.counts, lyc.mapped.counts.STAR, title = "S. lyc.  STAR mapped.  Default parameters")
+pen.count.comparison.1 <- CompareCounts(pen.known.counts, pen.mapped.counts, title = "S. pen.  STAR mapped.  Default parameters.  FeatureCounts counting")
+lyc.count.comparison.1 <- CompareCounts(lyc.known.counts, lyc.mapped.counts, title = "S. lyc.  STAR mapped.  Default parameters FeatureCounts counting")
+
 ```
+
 
 Investigate...
 Lets take a look at the bam file and extract reads from a few genes with 0 mapped reads.  Skip chromosome 0
