@@ -352,6 +352,7 @@ with(reads.df.map.single.overlap,sum(mapnear & mismap) / sum(mismap))
 sum(reads.df.map.single.overlap$mismap[!reads.df.map.single.overlap$mapnear]) / nrow(reads.df.map.single.overlap)
 
 #save.image("rnaseqSim.Rdata")
+save(list=grep("reads",ls(),invert = TRUE,value=T),file="rnaseqSim_no_read_data.Rdata")
 ```
 
 Next steps: some comparative genomic alignments for the genes that aren't behaving well.  (ideas: BLAT produces PSL files and IGV can read those.  Or use STAR.  Or use BLAST and the blast2sam).
