@@ -362,7 +362,8 @@ brew install blat
 ```
 
 ```{r run BLAT, engine='bash', eval=FALSE}
-blat ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa -q=rna -t=dna ~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot_orthlogs_only.fa -maxIntron=20000 penCDS_to_lycGENME.psl
+blat ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa -q=rna -t=dna -minMatch=4 ~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot_orthlogs_only.fa -maxIntron=20000 penCDS_to_lycGENME.psl
+#setting minMatch to 4 reduces number of overlaps from ~6300 to 3300
 ```
 
 Map _real_ reads as comparision
@@ -396,14 +397,40 @@ Solyc01g110960.2.1 (497): Much Confusion
 pen.count.comparison.1.cutoff300.1.3[pen.count.comparison.1.cutoff300.1.3$count.ratio==Inf,c("lyc.id","count.known","gene.length.ratio.pen.lyc")]
 ```
 
-Solyc01g010050.2: Two overlapping LYC transcripts
+Solyc01g010050.2: Two overlapping LYC transcripts (note this is fixed when using FeatureCounts from subread)
 Solyc01g060020.2: Multiple overlapping LYC transcripts
 Solyc05g023780.1: Repetitive region
 Solyc08g015710.1: Very small region of homology
 Solyc11g056540.1: BLAT did not find a match
 
-NEXT STEP: 
-* ELIMINATE GENES WITH OVERLAPPING LYC TO LYC OR PEN TO LYC TRANSCRIPTS.  
-* ALSO TRY DIFFERENT READ COUNTING METHOD
-* USE BLAT TO ELIMINATE TRANSCRIPTS WITH POOR HOMOLOGY
+Many of these issues could be dealt with by
+1. Eliminating genes with overlapping LYC to LYC or PEN to LYC transcripts. 
+2. Using the BLAT results to eliminate transcripts with poor homology.
+
+```{r}
+lyc.lyc.overlaps <- findOverlaps(lyc.transcript.gr,lyc.transcript.gr) #all overlaps including self on self
+lyc.lyc.overlaps <- lyc.lyc.overlaps[queryHits(lyc.lyc.overlaps)!=subjectHits(lyc.lyc.overlaps),] #limit to non-self overlaps
+lyc.lyc.overlaps <- substr(unique(mcols(lyc.transcript.gr)[queryHits(lyc.lyc.overlaps),"Name"]),1,16)
+
+pen.transcript.gr <- PSL2Granges(file="penCDS_to_lycGENME.psl")
+pen.pen.overlaps <- findOverlaps(pen.transcript.gr,pen.transcript.gr) #all overlaps including self on self
+
+#need additional step to limit to non-self overlaps because BLAT returns multiple hits in the same region.  Make sure that the overlap is with the same gene
+pen.pen.overlaps <- pen.pen.overlaps[names(pen.transcript.gr)[queryHits(pen.pen.overlaps)]!=names(pen.transcript.gr)[subjectHits(pen.pen.overlaps)]] 
+
+pen.pen.overlaps <- unique(mcols(pen.transcript.gr)[queryHits(pen.pen.overlaps),"lyc.ID"]) 
+```
+
+Now if we eliminate these genes how are our count comparisons?
+```{r}
+pen.count.comparison.1$flag <- "none"
+pen.count.comparison.1 <- within(pen.count.comparison.1,{
+                                 flag[pen.count.comparison.1$lyc.id %in% lyc.lyc.overlaps] <- "lyc.lyc.overlap"
+                                 flag[pen.count.comparison.1$lyc.id %in% pen.pen.overlaps] <- "pen.pen.overlap"
+                                 }
+                                 )
+with(pen.count.comparison.1,cor(count.known,count.mapped))
+with(pen.count.comparison.1[pen.count.comparison.1$flag=="none",],cor(count.known,count.mapped))
+```
+
 
