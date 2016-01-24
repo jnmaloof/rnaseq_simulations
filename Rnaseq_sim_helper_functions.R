@@ -88,3 +88,18 @@ CompareCounts <- function(known.counts,mapped.counts, title= NULL, plot = TRUE, 
   }
 }
 
+PSL2Granges <- function(file) {
+  psl.data <- read.delim(file,header=FALSE,skip=5)
+  psl.header <- make.names(apply(read.delim(file,header=FALSE,skip=2,nrow=2),2,paste,collapse=" "))
+  psl.header <- gsub("[ \\.]+",".",psl.header)
+  psl.header <- make.names(gsub("(\\.$)|(^\\.)","",psl.header))
+  colnames(psl.data) <- psl.header
+  with(psl.data,
+       GRanges(seqnames = T.name,
+               ranges = IRanges(start=T.start,end=T.end,names=Q.name),
+               strand=strand,
+               matches=match,
+               mismatches=mis.match,
+               Q.size=Q.size)
+  )
+}
