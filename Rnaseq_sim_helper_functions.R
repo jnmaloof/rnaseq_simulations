@@ -94,12 +94,16 @@ PSL2Granges <- function(file) {
   psl.header <- gsub("[ \\.]+",".",psl.header)
   psl.header <- make.names(gsub("(\\.$)|(^\\.)","",psl.header))
   colnames(psl.data) <- psl.header
+  psl.data$pen.ID <- substr(psl.data$Q.name,1,16)
+  psl.data$lyc.ID <- substr(psl.data$Q.name,18,33)
   with(psl.data,
        GRanges(seqnames = T.name,
                ranges = IRanges(start=T.start,end=T.end,names=Q.name),
                strand=strand,
                matches=match,
                mismatches=mis.match,
-               Q.size=Q.size)
+               Q.size=Q.size,
+               pen.ID=pen.ID,
+               lyc.ID=lyc.ID)
   )
 }
