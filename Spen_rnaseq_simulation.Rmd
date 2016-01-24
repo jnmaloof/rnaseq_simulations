@@ -362,7 +362,7 @@ brew install blat
 ```
 
 ```{r run BLAT, engine='bash', eval=FALSE}
-blat ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa ~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot_orthlogs_only.fa -maxIntron=20000 penCDS_to_lycGENME.psl
+blat ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa -q=rna -t=dna ~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot_orthlogs_only.fa -maxIntron=20000 penCDS_to_lycGENME.psl
 ```
 
 Map _real_ reads as comparision
