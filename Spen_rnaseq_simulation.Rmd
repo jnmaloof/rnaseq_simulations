@@ -67,7 +67,6 @@ orthologs <- read.delim("Ortho_v2.txt",header=FALSE) #From Tony Bolger
 head(orthologs)
 names(orthologs) <- c("PEN","LYC")
 orthologs$PEN <- sub("t","",orthologs$PEN)
-head(orthologs)
 orthologs$PEN.LYC <- paste(orthologs$PEN,orthologs$LYC,sep="_")
 names(pen.transcripts) <- substr(names(pen.transcripts),1,16)
 names(pen.transcripts) <- ifelse(!is.na(match(names(pen.transcripts),orthologs$PEN)),
@@ -210,7 +209,6 @@ pen.count.comparison.1 <- CompareCounts(pen.known.counts, pen.mapped.counts, tit
 lyc.count.comparison.1 <- CompareCounts(lyc.known.counts, lyc.mapped.counts, title = "S. lyc.  STAR mapped.  Default parameters FeatureCounts counting")
 
 ```
-
 
 Investigate...
 Lets take a look at the bam file and extract reads from a few genes with 0 mapped reads.  Skip chromosome 0
