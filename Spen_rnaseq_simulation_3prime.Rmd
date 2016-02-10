@@ -184,8 +184,8 @@ outSAMunmapped Within
 
 ### Run it!
 ```{r RunStar_1, eval=FALSE}
-RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="spen_threeprime_sim_1",n=2)
-RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="slyc_threeprime_sim_1",n=2)
+RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="spen_threeprime_sim_1",param.file = "../STAR.params.whitney.1")
+RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="slyc_threeprime_sim_1",param.file = "../STAR.params.whitney.1")
 ```
 __note__ I needed to use STAR2.5 for this to work.
 
