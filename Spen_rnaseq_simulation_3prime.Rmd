@@ -27,6 +27,7 @@ library(Rsamtools)
 library(rtracklayer)
 library(Rsubread)
 library(R.utils)
+library(data.table)
 setwd("~/Documents/Lab Notebook support/2015/rnaseq_simulations")
 source("Rnaseq_sim_helper_functions.R")
 ```
@@ -57,6 +58,34 @@ system(paste("~/git/extract-utr/extract-utr.pl",
              "--utr_length=250",
              "--gene_length=250"
 ))
+```
+
+## Modify ITAG gff
+For read counting to work appropriately the Heinz GFF file needs to be modified to match the expected reads (i.e. +/- 250 from stop codon)
+
+
+```{r}
+library(rtracklayer)
+library(profvis)
+heinz.gff <- readGFF("~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_gene_models.gff3")
+head(heinz.gff)
+test <- rbindlist(lapply(heinz.gff$Name[heinz.gff$type=="gene"][1:100], function(gene) {
+  tmp <- as.data.frame(heinz.gff[grep(gene,heinz.gff$ID,fixed=T),])
+  if (nlevels(factor(tmp$strand))>1) stop(paste("cannot detemine strand for gene",gene))
+  if (all(tmp$strand=="+")) {
+    stop.pos <- max(tmp$end[tmp$type=="CDS"])
+  } else if (all(tmp$strand=="-")) {
+    stop.pos <- min(tmp$start[tmp$type=="CDS"])
+  } 
+  strand.numeric <- eval(parse(text=paste(tmp$strand[1],"1")))
+  result <- rbindlist(list(tmp[tmp$type=="gene",][1,],
+                  tmp[tmp$type=="mRNA",][1,],
+                  tmp[tmp$type=="exon",][1,]) )
+  result$start <- stop.pos - strand.numeric*250
+  result$end <- stop.pos + strand.numeric*250
+  as.data.frame(result)
+}))
+test.GR <- makeGRangesFromDataFrame(test)
 ```
 
 
