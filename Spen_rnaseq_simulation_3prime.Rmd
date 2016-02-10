@@ -149,11 +149,11 @@ system("gzip slyc_threeprime_sim_1/sample_01_renamed.fasta")
 
 use external python script
 ```{r known_counts}
-pen.known.counts <- read.table(pipe("./CountGene.py spen_sim_1/sample_01_renamed.fasta.gz"),col.names=c("id","count"),stringsAsFactors = FALSE)
+pen.known.counts <- read.table(pipe("./CountGene.py spen_threeprime_sim_1/sample_01_renamed.fasta.gz"),col.names=c("id","count"),stringsAsFactors = FALSE)
 pen.known.counts$lyc.id <- substr(pen.known.counts$id,18,33)
 head(pen.known.counts)
 
-lyc.known.counts <- read.table(pipe("./CountGene.py slyc_sim_1/sample_01_renamed.fasta.gz"),col.names=c("id","count"),stringsAsFactors = FALSE)
+lyc.known.counts <- read.table(pipe("./CountGene.py slyc_threeprime_sim_1/sample_01_renamed.fasta.gz"),col.names=c("id","count"),stringsAsFactors = FALSE)
 lyc.known.counts$lyc.id <- substr(lyc.known.counts$id,18,33)
 head(lyc.known.counts)
 ```
@@ -175,20 +175,17 @@ cat > STAR.params.whitney.1
 genomeDir /Network/Servers/avalanche.plb.ucdavis.edu/Volumes/Mammoth/Users/jmaloof/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_genome
 outSAMtype BAM SortedByCoordinate
 outSAMunmapped Within
-quantMode GeneCounts
 
 cat > STAR.params.royce.1
 genomeDir /Users/jmaloof/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_genome
 outSAMtype BAM SortedByCoordinate
 outSAMunmapped Within
-quantMode GeneCounts
-
 ```
 
 ### Run it!
 ```{r RunStar_1, eval=FALSE}
-RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="spen_sim_1",n=2)
-RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="slyc_sim_1",n=2)
+RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="spen_threeprime_sim_1",n=2)
+RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="slyc_threeprime_sim_1",n=2)
 ```
 __note__ I needed to use STAR2.5 for this to work.
 
@@ -204,11 +201,11 @@ We want to do:
 ### Load in mapped counts
 ```{r get_mapped_counts }
 #using the STAR built-in counter
-pen.mapped.counts.STAR <- GetMappedCounts(prefix = "STAR_1", dir = "spen_sim_1")
-lyc.mapped.counts.STAR <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_sim_1")
+pen.mapped.counts.STAR <- GetMappedCounts(prefix = "STAR_1", dir = "spen_threeprime_sim_1")
+lyc.mapped.counts.STAR <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_threeprime_sim_1")
 #using featureCounts from Rsubread
-pen.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "spen_sim_1", type="STAR-featureCounts")
-lyc.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_sim_1", type="STAR-featureCounts")
+pen.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "spen_threeprime_sim_1", type="STAR-featureCounts")
+lyc.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_threeprime_sim_1", type="STAR-featureCounts")
 ```
 
 ### Comparison
@@ -224,7 +221,7 @@ lyc.count.comparison.1 <- CompareCounts(lyc.known.counts, lyc.mapped.counts, tit
 Investigate...
 Lets take a look at the bam file and extract reads from a few genes with 0 mapped reads.  Skip chromosome 0
 ```{r}
-reads <- scanBam(file="spen_sim_1/STAR_1Aligned.sortedByCoord.out.bam",
+reads <- scanBam(file="spen_threeprime_sim_1/STAR_1Aligned.sortedByCoord.out.bam",
                  param = ScanBamParam(what=scanBamWhat(),
                                       tag=c("NH","HI","AS","nM")))[[1]]
 #note: DO NOT directly convert reads to a data frame.  Uses lots of memory.  instead remove the very large reads column.  See below.
