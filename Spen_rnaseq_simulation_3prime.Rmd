@@ -44,7 +44,9 @@ library(Rsamtools)
 library(rtracklayer)
 library(Rsubread)
 library(R.utils)
-setwd("~/Documents/Lab Notebook support/2015/rnaseq_simulations")
+if (system("hostname",intern=TRUE) == "whitney") 
+  setwd("~/2015/rnaseq_simulations") else 
+  setwd("~/Documents/Lab Notebook support/2015/rnaseq_simulations")
 source("Rnaseq_sim_helper_functions.R")
 ```
 
@@ -164,19 +166,16 @@ cat > STAR.params.whitney.1
 genomeDir /Network/Servers/avalanche.plb.ucdavis.edu/Volumes/Mammoth/Users/jmaloof/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_genome
 outSAMtype BAM SortedByCoordinate
 outSAMunmapped Within
-quantMode GeneCounts
 
 cat > STAR.params.royce.1
 genomeDir /Users/jmaloof/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_genome
 outSAMtype BAM SortedByCoordinate
 outSAMunmapped Within
-quantMode GeneCounts
-
 ```
 
 ### Run it!
 ```{r RunStar_1, eval=FALSE}
-RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="spen_sim_1",n=2)
+RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="spen_threeprime_sim_1/",n=12)
 RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="slyc_sim_1",n=2)
 ```
 __note__ I needed to use STAR2.5 for this to work.
