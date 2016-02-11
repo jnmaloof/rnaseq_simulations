@@ -84,7 +84,7 @@ three.prime.df <- rbindlist(lapply(heinz.gff$Name[heinz.gff$type=="gene"], funct
   as.data.frame(result)
 }))
 three.prime.GR <- makeGRangesFromDataFrame(test)
-export(three.prime.GR,"test.gff3","~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_three_prime_250_250.gff3")
+export(three.prime.GR,"~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_three_prime_250_250.gff3","gff3")
 ```
 
 
