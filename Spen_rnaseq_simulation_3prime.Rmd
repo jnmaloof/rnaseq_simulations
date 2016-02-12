@@ -76,14 +76,14 @@ three.prime.df <- rbindlist(lapply(heinz.gff$Name[heinz.gff$type=="gene"], funct
     stop.pos <- min(tmp$start[tmp$type=="CDS"])
   } 
   result <- rbindlist(list(tmp[tmp$type=="gene",][1,],
-                  tmp[tmp$type=="mRNA",][1,],
-                  tmp[tmp$type=="exon",][1,]) )
+                           tmp[tmp$type=="mRNA",][1,],
+                           tmp[tmp$type=="exon",][1,]) )
   result$start <- stop.pos - 250 #this seems backwards for - strand, 
-                                 #relative to the data.frame but it is required for converting to GRanges
+  #relative to the data.frame but it is required for converting to GRanges
   result$end <- stop.pos + 250
   as.data.frame(result)
 }))
-three.prime.GR <- makeGRangesFromDataFrame(test)
+three.prime.GR <- makeGRangesFromDataFrame(three.prime.df,keep.extra.columns = TRUE)
 export(three.prime.GR,"~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_three_prime_250_250.gff3","gff3")
 ```
 
@@ -232,7 +232,11 @@ We want to do:
 pen.mapped.counts.STAR <- GetMappedCounts(prefix = "STAR_1", dir = "spen_threeprime_sim_1")
 lyc.mapped.counts.STAR <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_threeprime_sim_1")
 #using featureCounts from Rsubread
-pen.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "spen_threeprime_sim_1", type="STAR-featureCounts")
+pen.mapped.counts <- GetMappedCounts(prefix = "STAR_1",
+                                     dir = "spen_threeprime_sim_1",
+                                     type="STAR-featureCounts",
+                                    gff="~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_three_prime_250_250.gff3")
+
 lyc.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_threeprime_sim_1", type="STAR-featureCounts")
 ```
 
