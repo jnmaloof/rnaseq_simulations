@@ -237,7 +237,10 @@ pen.mapped.counts <- GetMappedCounts(prefix = "STAR_1",
                                      type="STAR-featureCounts",
                                     gff="~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_three_prime_250_250.gff3")
 
-lyc.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_threeprime_sim_1", type="STAR-featureCounts")
+lyc.mapped.counts <- GetMappedCounts(prefix = "STAR_1",
+                                     dir = "slyc_threeprime_sim_1",
+                                     type="STAR-featureCounts",
+                                     gff="~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_three_prime_250_250.gff3")
 ```
 
 ### Comparison
