@@ -212,8 +212,8 @@ outSAMunmapped Within
 
 ### Run it!
 ```{r RunStar_1, eval=FALSE}
-RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="spen_threeprime_sim_1",param.file = "../STAR.params.whitney.1")
-RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="slyc_threeprime_sim_1",param.file = "../STAR.params.whitney.1")
+RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1_map_2_genome",dir="spen_threeprime_sim_1",param.file = "../STAR.params.whitney.1")
+RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1_map_2_genome",dir="slyc_threeprime_sim_1",param.file = "../STAR.params.whitney.1")
 ```
 __note__ I needed to use STAR2.5 for this to work.
 
@@ -259,7 +259,7 @@ lyc.count.comparison.1 <- CompareCounts(lyc.known.counts, lyc.mapped.counts, tit
 ### Create "genome" file
 Only needs to be done once  
 This is a shell command  
-Takes about 25 minutes  
+Takes about 5 minutes  
 ```{r create_genome_file, eval=FALSE, engine='bash'}
 STAR --runThreadN 2 --runMode genomeGenerate --genomeDir ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_3prime --genomeFastaFiles ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4-threeprimeutr-250-250.fa
 ```
@@ -279,8 +279,33 @@ outSAMunmapped Within
 
 ### Run it!
 ```{r RunStar_1, eval=FALSE}
-RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="spen_threeprime_sim_1",param.file = "../STAR.params.whitney.1")
-RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="slyc_threeprime_sim_1",param.file = "../STAR.params.whitney.1")
+RunStar(fasta="sample_01_renamed.fasta.gz",
+        prefix = "STAR_1_map_2_3prime",
+        dir="spen_threeprime_sim_1",
+        param.file = "../STAR.params.royce.3prime",
+        n=2)
+RunStar(fasta="sample_01_renamed.fasta.gz",
+        prefix = "STAR_1_map_2_3prime",
+        dir="slyc_threeprime_sim_1",
+        param.file = "../STAR.params.royce.3prime",
+        n=2)
+```
+
+### Load in mapped counts
+```{r get_mapped_counts }
+#using the STAR built-in counter
+pen.mapped.counts.STAR <- GetMappedCounts(prefix = "STAR_1", dir = "spen_threeprime_sim_1")
+lyc.mapped.counts.STAR <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_threeprime_sim_1")
+#using featureCounts from Rsubread
+pen.mapped.counts <- GetMappedCounts(prefix = "STAR_1",
+                                     dir = "spen_threeprime_sim_1",
+                                     type="STAR-featureCounts",
+                                    gff="~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_three_prime_250_250.gff3")
+
+lyc.mapped.counts <- GetMappedCounts(prefix = "STAR_1",
+                                     dir = "slyc_threeprime_sim_1",
+                                     type="STAR-featureCounts",
+                                     gff="~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_three_prime_250_250.gff3")
 ```
 
 
