@@ -253,6 +253,40 @@ lyc.count.comparison.1 <- CompareCounts(lyc.known.counts, lyc.mapped.counts, tit
 
 ```
 
+
+## Map with STAR to Heinz 3' DGE
+
+### Create "genome" file
+Only needs to be done once  
+This is a shell command  
+Takes about 25 minutes  
+```{r create_genome_file, eval=FALSE, engine='bash'}
+STAR --runThreadN 2 --runMode genomeGenerate --genomeDir ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_3prime --genomeFastaFiles ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4-threeprimeutr-250-250.fa
+```
+
+### Create parameters files
+```{r STAR_params_1, eval=FALSE, engine='bash'}
+cat > STAR.params.whitney.3prime
+genomeDir /Network/Servers/avalanche.plb.ucdavis.edu/Volumes/Mammoth/Users/jmaloof/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_3prime
+outSAMtype BAM SortedByCoordinate
+outSAMunmapped Within
+
+cat > STAR.params.royce.3prime
+genomeDir /Users/jmaloof/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_3prime
+outSAMtype BAM SortedByCoordinate
+outSAMunmapped Within
+```
+
+### Run it!
+```{r RunStar_1, eval=FALSE}
+RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="spen_threeprime_sim_1",param.file = "../STAR.params.whitney.1")
+RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="slyc_threeprime_sim_1",param.file = "../STAR.params.whitney.1")
+```
+
+
+### Below not run on 3'DGE stuff yet
+
+
 Investigate...
 Lets take a look at the bam file and extract reads from a few genes with 0 mapped reads.  Skip chromosome 0
 ```{r}
