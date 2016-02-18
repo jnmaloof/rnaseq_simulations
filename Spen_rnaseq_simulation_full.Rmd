@@ -1,24 +1,36 @@
 ---
-title: "Spen_rnaseq_simulation"
+title: "S. pennellii RNAseq simulations"
 author: "Julin Maloof"
-date: "November 29, 2015"
-output: html_document
+date: "February 18, 2016"
+output: output: revealjs::revealjs_presentation
 ---
 
-I want to determine how well various aligners perform when mapping S. pennellii RNAseq reads to the Heinz genome.  The basic method will be to simulate reads from fasta files, map, and then compare results to reality.
+```{r setup, include=FALSE}
+opts_chunk$set(cache=TRUE)
+```
 
-I will start just with S.pen but will move on to differential expression analysis between M82 and S.pen.
+# Introduction
 
-I plan to compare
+## Overall Question
+
+When mapping RNAseq reads from a heterologous species to a reference genome, what is the best way to perform the mapping?
+
+## Strategy
+
+Use _S. pennellii_ and _S. lycopersium_.  Both are sequenced.  Simulate RNASeq reads from _S. pennellii_ and map to _S. lycopersicum_.  Compare actual (simulated) counts to the number of counts that map.
+
+Can compare different aligners:
 
 * stampy
 * subread
 * star
 * bowtie
 
-## preliminaries
+And different paramters with those aligners.
 
-### Install Polyester
+# Preliminaries
+
+## Install Polyester
 
 Use the [Polyester package](http://bioconductor.org/packages/release/bioc/vignettes/polyester/inst/doc/polyester.html)  to simulate RNAseq reads.  Also see the [Polyester paper.](http://bioinformatics.oxfordjournals.org/content/31/17/2778)
 
@@ -28,14 +40,14 @@ source("http://bioconductor.org/biocLite.R")
 biocLite("polyester")
 ```
 
-### Install STAR (only needs to be done once)
+## Install STAR (only needs to be done once)
 (NOTE THAT VERSION 2.5 IS NEEDED AND THIS IS NOT CURRENTLY IN HOMEBREW)
 ```{r install_STAR eval=FALSE, engine='bash'}
 brew install rna-star
 brew install gcc5 
 ```
 
-### load libraries and helper scripts
+## load libraries and helper scripts
 ```{r}
 library(polyester)
 library(Biostrings)
@@ -61,7 +73,7 @@ head(lyc.transcripts)
 names(lyc.transcripts)[1:10]
 ```
 
-Reformat names to get rid of description and add Slyc reference
+## Reformat names to get rid of description and add Slyc reference
 ```{r reformat_gene_names, eval=FALSE}
 orthologs <- read.delim("Ortho_v2.txt",header=FALSE) #From Tony Bolger
 head(orthologs)
@@ -84,7 +96,7 @@ lyc.gene.length <- as.integer(nchar(lyc.transcripts))
 names(lyc.gene.length) <- names(lyc.transcripts)
 ```
 
-Lets limit ourselves to genes where orthology is clear:
+## Limit ourselves to genes where orthology is clear:
 ```{r reduce_data, eval=FALSE}
 pen.transcripts.small <- pen.transcripts[nchar(names(pen.transcripts))>16]
 writeXStringSet(pen.transcripts.small,file="~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot_orthlogs_only.fa")
@@ -92,7 +104,7 @@ lyc.transcripts.small <- lyc.transcripts[nchar(names(lyc.transcripts)) > 18]
 writeXStringSet(lyc.transcripts.small,file="~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.pen.orthologs.only.fasta")
 ```
 
-Simulate PEN RNAseq reads
+## Simulate PEN RNAseq reads
 ```{r simulate_pen_1, eval=FALSE}
 #3 minutes for 1M reads
 #15 minutes for 5M reads
@@ -114,7 +126,7 @@ system("rm spen_sim_1/sample_01.fasta")
 system("gzip spen_sim_1/sample_01_renamed.fasta")
 ```
 
-Simulate LYC RNAseq reads
+## Simulate LYC RNAseq reads
 ```{r simulate_lyc_1, eval=FALSE}
 system.time(
   simulate_experiment(fasta="~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.pen.orthologs.only.fasta",
@@ -134,9 +146,9 @@ system("rm slyc_sim_1/sample_01.fasta")
 system("gzip slyc_sim_1/sample_01_renamed.fasta")
 ```
 
-### calculate known counts
+## calculate known counts
 
-use external python script
+Use external python script
 ```{r known_counts}
 pen.known.counts <- read.table(pipe("./CountGene.py spen_sim_1/sample_01_renamed.fasta.gz"),col.names=c("id","count"),stringsAsFactors = FALSE)
 pen.known.counts$lyc.id <- substr(pen.known.counts$id,18,33)
@@ -147,9 +159,9 @@ lyc.known.counts$lyc.id <- substr(lyc.known.counts$id,18,33)
 head(lyc.known.counts)
 ```
 
-## Map with star
+# Map with star
 
-### Create genome file
+## Create genome file
 Only needs to be done once  
 This is a shell command  
 Takes about 25 minutes  
@@ -158,7 +170,7 @@ gffread -T ITAG2.4_gene_models.gff3 -o ITAG2.4_gene_models.gtf
 STAR --runThreadN 6 --runMode genomeGenerate --genomeDir ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_genome --genomeFastaFiles ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa --sjdbGTFfile ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_gene_models.gtf
 ```
 
-### Create parameters files
+## Create parameters files
 ```{r STAR_params_1, eval=FALSE, engine='bash'}
 cat > STAR.params.whitney.1
 genomeDir /Network/Servers/avalanche.plb.ucdavis.edu/Volumes/Mammoth/Users/jmaloof/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_genome
@@ -174,23 +186,23 @@ quantMode GeneCounts
 
 ```
 
-### Run it!
+## Run it!
 ```{r RunStar_1, eval=FALSE}
 RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="spen_sim_1",n=2)
 RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="slyc_sim_1",n=2)
 ```
 __note__ I needed to use STAR2.5 for this to work.
 
-## Evaluate results
+# Evaluate results from STAR
 
 We want to do:
 
 * correlation between known counts and found counts
 * how many reads map to the wrong gene?
 * how many reads do not map?
-* something about splice junctions
+* are the splice junctions correct?
 
-### Load in mapped counts
+## Load in mapped counts
 ```{r get_mapped_counts }
 #using the STAR built-in counter
 pen.mapped.counts.STAR <- GetMappedCounts(prefix = "STAR_1", dir = "spen_sim_1")
@@ -200,17 +212,15 @@ pen.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "spen_sim_1", type
 lyc.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_sim_1", type="STAR-featureCounts")
 ```
 
-### Comparison
-
+## Comparison
 ```{r compare_spen1}
 pen.count.comparison.1.STAR <- CompareCounts(pen.known.counts, pen.mapped.counts.STAR, title = "S. pen.  STAR mapped.  Default parameters")
 lyc.count.comparison.1.STAR <- CompareCounts(lyc.known.counts, lyc.mapped.counts.STAR, title = "S. lyc.  STAR mapped.  Default parameters")
 pen.count.comparison.1 <- CompareCounts(pen.known.counts, pen.mapped.counts, title = "S. pen.  STAR mapped.  Default parameters.  FeatureCounts counting")
 lyc.count.comparison.1 <- CompareCounts(lyc.known.counts, lyc.mapped.counts, title = "S. lyc.  STAR mapped.  Default parameters FeatureCounts counting")
-
 ```
 
-Investigate...
+##Investigate...
 Lets take a look at the bam file and extract reads from a few genes with 0 mapped reads.  Skip chromosome 0
 ```{r}
 reads <- scanBam(file="spen_sim_1/STAR_1Aligned.sortedByCoord.out.bam",
@@ -298,7 +308,7 @@ ggplot(combined.cutoff.plot.data,aes(x=genes,y=correlation,color=type)) + geom_l
 ggplot(length.cutoff.plot.data,aes(x=genes,y=correlation,label=cutoff)) + geom_line() + geom_text(aes(label=cutoff),size=2.5,vjust=-1,hjust=-.3) 
 ```
 
-how many reads map to the wrong gene?
+# how many reads map to the wrong gene?
 
 note: there is ranges data for each read mapping.  So I can compare that to the GTF ranges.
 ```{r mismapping}
@@ -364,7 +374,7 @@ blat ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes
 #setting minMatch to 4 reduces number of overlaps from ~6300 to 3300
 ```
 
-Map _real_ reads as comparision
+## Map _real_ reads as comparision
 ```{r map_real,eval=FALSE}
 RunStar(fasta = "/Volumes/temp-o-matic/temp_SolRAID_restore/Solexa_runs_Data/Filtered_fastq_by_seedling_exp/merged_files/PEN.seedlings.fq",
         prefix = "STAR_1",
