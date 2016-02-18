@@ -4,7 +4,7 @@
 
 #Function for running the read mapping program STAR
 
-RunStar <- function(fasta, prefix, param.file = "../STAR.params.royce.1", args = "", dir =".", twopassMode = "Basic", n=12) {
+RunStar <- function(fasta, prefix, param.file = "../STAR.params.whitney.1", args = "", dir =".", twopassMode = "Basic", n=12) {
   #This function runs the external program STAR to map reads against the genome reference
   old.dir <- getwd()
   if (!dir.exists(dir)) dir.create(dir,recursive = TRUE) 
