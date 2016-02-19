@@ -2,12 +2,18 @@
 title: "S. pennellii RNAseq simulations"
 author: "Julin Maloof"
 date: "February 18, 2016"
-output: output: revealjs::revealjs_presentation
+output:
+  revealjs::revealjs_presentation:
+    reveal_options:
+      width: 1200
+      height: 800
 ---
 
 ```{r setup, include=FALSE}
+library(knitr)
 opts_chunk$set(cache=TRUE)
 ```
+
 
 # Introduction
 
@@ -15,18 +21,25 @@ opts_chunk$set(cache=TRUE)
 
 When mapping RNAseq reads from a heterologous species to a reference genome, what is the best way to perform the mapping?
 
-## Strategy
+For example:
 
-Use _S. pennellii_ and _S. lycopersium_.  Both are sequenced.  Simulate RNASeq reads from _S. pennellii_ and map to _S. lycopersicum_.  Compare actual (simulated) counts to the number of counts that map.
+  > - We have a tomato reference genome
+  > - We want to do RNAseq on a variety of wild relatives of tomato for which we have no genome
 
-Can compare different aligners:
+## Strategy: simulation
 
-* stampy
-* subread
-* star
-* bowtie
+> * Use _S. pennellii_ and _S. lycopersium_.  Both are sequenced.  
+> * Simulate RNASeq reads from _S. pennellii_ and map to _S. lycopersicum_.
+> * Compare actual (simulated) counts to the number of counts that map.
 
-And different paramters with those aligners.
+
+> * Can compare different aligners:
+      * stampy
+      * subread
+      * star
+      * bowtie
+
+> * And different parameters with those aligners.
 
 # Preliminaries
 
@@ -42,7 +55,7 @@ biocLite("polyester")
 
 ## Install STAR (only needs to be done once)
 (NOTE THAT VERSION 2.5 IS NEEDED AND THIS IS NOT CURRENTLY IN HOMEBREW)
-```{r install_STAR eval=FALSE, engine='bash'}
+```{r install_STAR, eval=FALSE, engine='bash'}
 brew install rna-star
 brew install gcc5 
 ```
@@ -64,7 +77,7 @@ source("Rnaseq_sim_helper_functions.R")
 Load Spen and Slyc transcripts  
 Spen CDS fasta can be obtained from [SGN](ftp://ftp.solgenomics.net/genomes/Solanum_pennellii/annotations/)
 slyc fasta is also from [SGN](ftp://ftp.sgn.cornell.edu/genomes/Solanum_lycopersicum/annotation/ITAG2.4_release/)
-```{r load_Spen, eval=FALSE}
+```{r load_Spen, eval=TRUE}
 pen.transcripts <-  readDNAStringSet("~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot.fa")
 head(pen.transcripts)
 names(pen.transcripts[1:10])
@@ -74,7 +87,7 @@ names(lyc.transcripts)[1:10]
 ```
 
 ## Reformat names to get rid of description and add Slyc reference
-```{r reformat_gene_names, eval=FALSE}
+```{r reformat_gene_names, eval=TRUE}
 orthologs <- read.delim("Ortho_v2.txt",header=FALSE) #From Tony Bolger
 head(orthologs)
 names(orthologs) <- c("PEN","LYC")
@@ -97,7 +110,7 @@ names(lyc.gene.length) <- names(lyc.transcripts)
 ```
 
 ## Limit ourselves to genes where orthology is clear:
-```{r reduce_data, eval=FALSE}
+```{r reduce_data, eval=TRUE}
 pen.transcripts.small <- pen.transcripts[nchar(names(pen.transcripts))>16]
 writeXStringSet(pen.transcripts.small,file="~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot_orthlogs_only.fa")
 lyc.transcripts.small <- lyc.transcripts[nchar(names(lyc.transcripts)) > 18]
@@ -170,20 +183,21 @@ gffread -T ITAG2.4_gene_models.gff3 -o ITAG2.4_gene_models.gtf
 STAR --runThreadN 6 --runMode genomeGenerate --genomeDir ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_genome --genomeFastaFiles ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa --sjdbGTFfile ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_gene_models.gtf
 ```
 
-## Create parameters files
-```{r STAR_params_1, eval=FALSE, engine='bash'}
+## Create parameters files 
+```{r STAR_params_1_whitney, eval=FALSE, engine='bash'}
 cat > STAR.params.whitney.1
 genomeDir /Network/Servers/avalanche.plb.ucdavis.edu/Volumes/Mammoth/Users/jmaloof/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_genome
 outSAMtype BAM SortedByCoordinate
 outSAMunmapped Within
 quantMode GeneCounts
+```
 
+```{r STAR_params_1_royce, eval=FALSE, engine='bash', include=FALSE}
 cat > STAR.params.royce.1
 genomeDir /Users/jmaloof/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_genome
 outSAMtype BAM SortedByCoordinate
 outSAMunmapped Within
 quantMode GeneCounts
-
 ```
 
 ## Run it!
@@ -195,7 +209,7 @@ __note__ I needed to use STAR2.5 for this to work.
 
 # Evaluate results from STAR
 
-We want to do:
+## We want to do:
 
 * correlation between known counts and found counts
 * how many reads map to the wrong gene?
@@ -212,17 +226,27 @@ pen.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "spen_sim_1", type
 lyc.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_sim_1", type="STAR-featureCounts")
 ```
 
-## Comparison
-```{r compare_spen1}
-pen.count.comparison.1.STAR <- CompareCounts(pen.known.counts, pen.mapped.counts.STAR, title = "S. pen.  STAR mapped.  Default parameters")
-lyc.count.comparison.1.STAR <- CompareCounts(lyc.known.counts, lyc.mapped.counts.STAR, title = "S. lyc.  STAR mapped.  Default parameters")
-pen.count.comparison.1 <- CompareCounts(pen.known.counts, pen.mapped.counts, title = "S. pen.  STAR mapped.  Default parameters.  FeatureCounts counting")
-lyc.count.comparison.1 <- CompareCounts(lyc.known.counts, lyc.mapped.counts, title = "S. lyc.  STAR mapped.  Default parameters FeatureCounts counting")
+## _S. pennellii_
+Compare known to mapped counts  
+```{r compare_spen1, echo=FALSE, results='hide', fig.width=8, fig.height=5}
+# pen.count.comparison.1.STAR <- CompareCounts(pen.known.counts, pen.mapped.counts.STAR, title = "S. pen.  STAR mapped.  Default parameters")
+pen.count.comparison.1 <- CompareCounts(pen.known.counts, pen.mapped.counts, chrom.separate=FALSE, title = "S. pen.  STAR mapped.  Default parameters.  FeatureCounts counting")
 ```
 
+For many genes this is pretty good, but for some it is pretty poor.  Is this due to S. pen?
+
+## _S. lycopersicum_
+Compare known to mapped counts  
+```{r compare_slyc1, echo=FALSE, results='hide', fig.width=8, fig.height=5}
+# lyc.count.comparison.1.STAR <- CompareCounts(lyc.known.counts, lyc.mapped.counts.STAR, title = "S. lyc.  STAR mapped.  Default parameters")
+lyc.count.comparison.1 <- CompareCounts(lyc.known.counts, lyc.mapped.counts, chrom.separate=FALSE, title = "S. lyc.  STAR mapped.  Default parameters FeatureCounts counting")
+```
+
+_S. lyc_ maps much better.  What is messing up the _S. pen_ mapping?
+
 ##Investigate...
-Lets take a look at the bam file and extract reads from a few genes with 0 mapped reads.  Skip chromosome 0
-```{r}
+Lets take a look at the bam file and extract reads from a few genes with 0 mapped reads.
+```{r, echo=FALSE,results='hide'}
 reads <- scanBam(file="spen_sim_1/STAR_1Aligned.sortedByCoord.out.bam",
                  param = ScanBamParam(what=scanBamWhat(),
                                       tag=c("NH","HI","AS","nM")))[[1]]
@@ -250,9 +274,15 @@ reads.df$lyc.gene.length <- lyc.gene.length[reads.df$gene]
 reads.df$pen.lyc.gene.length.dif <- reads.df$pen.gene.length - reads.df$lyc.gene.length
 
 reads.df$pen.lyc.gene.length.ratio <- reads.df$pen.gene.length / reads.df$lyc.gene.length
+```
 
-ggplot(reads.df,aes(x=as.factor(NH),y=nM,group=NH)) + geom_point(stat="sum") + scale_size(breaks=seq(0,1,.1),range=c(1,15))
+## Reads plotted by genes hit and mismatches
+```{r, fig_height=5,fig_width=8}
+ggplot(reads.df,aes(x=as.factor(NH),y=nM,group=NH)) + geom_point(stat="sum") + scale_size(breaks=seq(0,1,.1),range=c(1,15)) + xlab("Number of genes hit") + ylab("Number of mismatches")
+```
 
+
+```{r not_used, echo=FALSE, eval=FALSE}
 ggplot(reads.df,aes(x=as.factor(NH),y=pen.gene.length,fill=pen.zero.map)) + geom_violin()
 
 ggplot(reads.df,aes(x=as.factor(NH),y=lyc.gene.length,fill=pen.zero.map)) + geom_violin()
@@ -264,13 +294,24 @@ ggplot(reads.df,aes(x=as.factor(NH),y=pen.lyc.gene.length.ratio,fill=multimap)) 
 ggplot(reads.df,aes(x=pen.zero.map,y=pen.gene.length,fill=multimap)) + geom_boxplot()
 
 ggplot(reads.df,aes(x=pen.zero.map,y=pen.lyc.gene.length.ratio,fill=multimap)) + geom_violin()
+```
 
-#maybe better to look at this gene_length thing on a per gene basis
+## Gene length effects
 
+```{r}
 ggplot(pen.count.comparison.1,aes(x=gene.length.diff.pen.lyc,y=count.ratio.known.mapped)) + geom_point(alpha=0.1) + scale_y_log10() + scale_x_log10(breaks=c(1,10,100,200,300,500,1000))
+```
 
+
+## Gene length effects 2
+
+```{r}
 ggplot(pen.count.comparison.1,aes(x=gene.length.ratio.pen.lyc,y=count.ratio.known.mapped))  + scale_y_log10() + scale_x_log10(breaks=c(.1,.5,seq(1,2,.2),3,5,10)) + geom_hline(yintercept=1,color="blue") + geom_vline(xintercept=1,color="blue") + geom_point(alpha=.1)
+```
 
+
+## cutoffs
+```{r}
 #reasonable cutoffs might be a gene.length.ratio > 1.3 or a gene length difference of > 300
 
 pen.count.comparison.1.cutoff1.3 <- pen.count.comparison.1[pen.count.comparison.1$gene.length.ratio.pen.lyc < 1.3,]
