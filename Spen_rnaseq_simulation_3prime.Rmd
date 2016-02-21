@@ -1,24 +1,32 @@
 ---
-title: "Spen_rnaseq_simulation"
+title: "S. pennellii 3Prime DGE simulations"
 author: "Julin Maloof"
-date: "Jan 23, 2015"
-output: html_document
+date: "January 23, 2016"
+output:
+  revealjs::revealjs_presentation:
+    reveal_options:
+      width: 1200
+      height: 800
 ---
+
+```{r setup, include=FALSE}
+library(knitr)
+opts_chunk$set(cache=TRUE)
+opts_chunk$set(warnings=FALSE)
+opts_chunk$set(messages=FALSE)
+```
+
+# Introduction
+
+## Overall Idea
 
 I want to determine how well various aligners perform when mapping S. pennellii RNAseq reads to the Heinz genome.  The basic method will be to simulate reads from fasta files, map, and then compare results to reality.
 
-I will start just with S.pen but will move on to differential expression analysis between M82 and S.pen.
-
-I plan to compare
-
-* stampy
-* subread
-* star
-* bowtie
-
 This script is for 3' DGE
 
-### load libraries and helper scripts
+# Preliminaries
+
+## load libraries and helper scripts
 ```{r}
 library(polyester)
 library(Biostrings)
@@ -35,13 +43,14 @@ library(data.table)
 source("Rnaseq_sim_helper_functions.R")
 ```
 
-## Run Mike's script to generate 3'UTR transcripts
+## Generate 3'UTR transcripts (S. pen)
+Use Mike's Script
 
 Spen CDS fasta can be obtained from [SGN](ftp://ftp.solgenomics.net/genomes/Solanum_pennellii/annotations/)
 slyc fasta is also from [SGN](ftp://ftp.sgn.cornell.edu/genomes/Solanum_lycopersicum/annotation/ITAG2.4_release/)
 
 Only needs to be done once
-```{r}
+```{r, eval=FALSE}
 system(paste("~/git/extract-utr/extract-utr.pl",
              "--threeprime",
              "--cds_fa_file=/Users/jmaloof/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot.fa",
@@ -51,7 +60,10 @@ system(paste("~/git/extract-utr/extract-utr.pl",
              "--utr_length=250",
              "--gene_length=250"
 ))
+```
 
+## lycopersiucm 3' UTR transcripts
+```{r, eval=FALSE}
 system(paste("~/git/extract-utr/extract-utr.pl",
              "--threeprime",
              "--cds_fa_file=/Users/jmaloof/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.fasta",
@@ -65,8 +77,6 @@ system(paste("~/git/extract-utr/extract-utr.pl",
 
 ## Modify ITAG gff
 For read counting to work appropriately the Heinz GFF file needs to be modified to match the expected reads (i.e. +/- 250 from stop codon)
-
-
 ```{r}
 library(rtracklayer)
 heinz.gff <- readGFF("~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_gene_models.gff3")
@@ -91,21 +101,21 @@ export(three.prime.GR,"~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_
 ```
 
 
-## Simluate DGE reads (simple version)
+# Simluate DGE reads (simple version)
 
-Load Spen and Slyc 3' UTR  
+## Load Spen and Slyc 3' UTR  
 
 ```{r load_Spen, eval=FALSE}
 pen.transcripts <-  readDNAStringSet("~/Sequences/ref_genomes/S.pen/Spenn-v2-3primeutr-250-250.fa")
 head(pen.transcripts)
 names(pen.transcripts[1:10])
 lyc.transcripts <- readDNAStringSet("~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4-threeprimeutr-250-250.fa")
->>>>>>> 3primeDGE
 head(lyc.transcripts)
 names(lyc.transcripts)[1:10]
 ```
 
-Reformat names to get rid of description and add Slyc reference
+## Reformat names
+Get rid of description and add Slyc reference
 ```{r reformat_gene_names, eval=FALSE}
 orthologs <- read.delim("Ortho_v2.txt",header=FALSE) #From Tony Bolger
 head(orthologs)
@@ -128,7 +138,7 @@ lyc.gene.length <- as.integer(nchar(lyc.transcripts))
 names(lyc.gene.length) <- names(lyc.transcripts)
 ```
 
-Lets limit ourselves to genes where orthology is clear:
+## Limit ourselves to where orthology is clear:
 ```{r reduce_data, eval=FALSE}
 pen.transcripts.small <- pen.transcripts[nchar(names(pen.transcripts))>16]
 writeXStringSet(pen.transcripts.small,file="~/Sequences/ref_genomes/S.pen/Spenn-v2-3primeutr-250-250-orthologs-only.fa")
@@ -136,7 +146,7 @@ lyc.transcripts.small <- lyc.transcripts[nchar(names(lyc.transcripts)) > 18]
 writeXStringSet(lyc.transcripts.small,file="~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4-threeprimeutr-250-250-orthlogs-only.fa")
 ```
 
-Simulate PEN RNAseq reads
+## Simulate PEN RNAseq reads
 ```{r simulate_pen_1, eval=FALSE}
 #15 minutes for 5M reads
 system.time(
@@ -157,7 +167,7 @@ system("rm spen_threeprime_sim_1/sample_01.fasta")
 system("gzip spen_threeprime_sim_1/sample_01_renamed.fasta")
 ```
 
-Simulate LYC RNAseq reads
+## Simulate LYC RNAseq reads
 ```{r simulate_lyc_1, eval=FALSE}
 system.time(
   simulate_experiment(fasta="~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4-threeprimeutr-250-250-orthlogs-only.fa",
@@ -177,9 +187,8 @@ system("rm slyc_threeprime_sim_1/sample_01.fasta")
 system("gzip slyc_threeprime_sim_1/sample_01_renamed.fasta")
 ```
 
-### calculate known counts
-
-use external python script
+## calculate known counts
+Use external python script
 ```{r known_counts}
 pen.known.counts <- read.table(pipe("./CountGene.py spen_threeprime_sim_1/sample_01_renamed.fasta.gz"),col.names=c("id","count"),stringsAsFactors = FALSE)
 pen.known.counts$lyc.id <- substr(pen.known.counts$id,18,33)
@@ -190,9 +199,9 @@ lyc.known.counts$lyc.id <- substr(lyc.known.counts$id,18,33)
 head(lyc.known.counts)
 ```
 
-## Map with star
+# Map with star
 
-### Create genome file
+## Create STAR genome file
 Only needs to be done once  
 This is a shell command  
 Takes about 25 minutes  
@@ -201,7 +210,7 @@ gffread -T ITAG2.4_gene_models.gff3 -o ITAG2.4_gene_models.gtf
 STAR --runThreadN 6 --runMode genomeGenerate --genomeDir ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_genome --genomeFastaFiles ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa --sjdbGTFfile ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_gene_models.gtf
 ```
 
-### Create parameters files
+## Create parameters files
 ```{r STAR_params_1, eval=FALSE, engine='bash'}
 cat > STAR.params.whitney.1
 genomeDir /Network/Servers/avalanche.plb.ucdavis.edu/Volumes/Mammoth/Users/jmaloof/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_genome
@@ -214,23 +223,16 @@ outSAMtype BAM SortedByCoordinate
 outSAMunmapped Within
 ```
 
-### Run it!
+## Run it!
 ```{r RunStar_1, eval=FALSE}
 RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1_map_2_genome",dir="spen_threeprime_sim_1",param.file = "../STAR.params.whitney.1")
 RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1_map_2_genome",dir="slyc_threeprime_sim_1",param.file = "../STAR.params.whitney.1")
 ```
 __note__ I needed to use STAR2.5 for this to work.
 
-## Evaluate results
+# Evaluate results STAR map to genome
 
-We want to do:
-
-* correlation between known counts and found counts
-* how many reads map to the wrong gene?
-* how many reads do not map?
-* something about splice junctions
-
-### Load in mapped counts
+## Load in mapped counts
 ```{r get_mapped_counts }
 #using the STAR built-in counter
 pen.mapped.counts.STAR <- GetMappedCounts(prefix = "STAR_1_map_2_genome", dir = "spen_threeprime_sim_1")
@@ -247,21 +249,19 @@ lyc.mapped.counts <- GetMappedCounts(prefix = "STAR_1",
                                      gff="~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_three_prime_250_250.gff3")
 ```
 
-### Comparison
-
+## Comparison (_S.pen_)
 ```{r compare_spen1}
-pen.count.comparison.1.STAR <- CompareCounts(pen.known.counts, pen.mapped.counts.STAR, title = "S. pen.  STAR mapped.  Default parameters")
-lyc.count.comparison.1.STAR <- CompareCounts(lyc.known.counts, lyc.mapped.counts.STAR, title = "S. lyc.  STAR mapped.  Default parameters")
 pen.count.comparison.1 <- CompareCounts(pen.known.counts, pen.mapped.counts, title = "S. pen.  STAR mapped.  Default parameters.  FeatureCounts counting")
+```
+## Comparison (_S. lyc_)
+```{r compare_slyc1}
 lyc.count.comparison.1 <- CompareCounts(lyc.known.counts, lyc.mapped.counts, title = "S. lyc.  STAR mapped.  Default parameters FeatureCounts counting")
-
 ```
 
 
+# Map with STAR to Heinz 3' DGE sequences (instead of whole genome)
 
-## Map with STAR to Heinz 3' DGE
-
-### Create "genome" file
+## Create "genome" file
 Only needs to be done once  
 This is a shell command  
 Takes about 5 minutes  
@@ -269,7 +269,7 @@ Takes about 5 minutes
 STAR --runThreadN 2 --runMode genomeGenerate --genomeDir ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_3prime --genomeFastaFiles ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4-threeprimeutr-250-250.fa
 ```
 
-### Create parameters files
+## Create parameters files
 ```{r STAR_params_1, eval=FALSE, engine='bash'}
 cat > STAR.params.whitney.3prime
 genomeDir /Network/Servers/avalanche.plb.ucdavis.edu/Volumes/Mammoth/Users/jmaloof/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/STAR_3prime
@@ -282,7 +282,7 @@ outSAMtype BAM SortedByCoordinate
 outSAMunmapped Within
 ```
 
-### Run it!
+## Run it!
 ```{r RunStar_1, eval=FALSE}
 RunStar(fasta="sample_01_renamed.fasta.gz",
         prefix = "STAR_1_map_2_3prime",
@@ -296,27 +296,35 @@ RunStar(fasta="sample_01_renamed.fasta.gz",
         n=2)
 ```
 
-### Load in mapped counts
+## Load in mapped counts
 ```{r get_mapped_counts }
 #using featureCounts from Rsubread
-pen.mapped.counts <- GetMappedCounts(prefix = "STAR_1_map_2_3prime",
+pen.mapped.counts.to3prime <- GetMappedCounts(prefix = "STAR_1_map_2_3prime",
                                      dir = "spen_threeprime_sim_1",
                                      type="transcript",
                                     gff="~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_three_prime_250_250.gff3")
 
-lyc.mapped.counts <- GetMappedCounts(prefix = "STAR_1_map_2_3prime",
+lyc.mapped.counts.to3prime <- GetMappedCounts(prefix = "STAR_1_map_2_3prime",
                                      dir = "slyc_threeprime_sim_1",
                                      type="transcript",
                                      gff="~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_three_prime_250_250.gff3")
 ```
 
+## Comparison (_S.pen_)
+```{r compare_spen1_3DGE}
+pen.count.comparison.1.to3prime <- CompareCounts(pen.known.counts, pen.mapped.counts.to3prime, title = "S. pen. STAR mapped to 3prime.  Default parameters.  FeatureCounts counting")
+```
+## Comparison (_S. lyc_)
+```{r compare_slyc1_3DGE}
+lyc.count.comparison.1.to3prime <- CompareCounts(lyc.known.counts, lyc.mapped.counts.to3prime, title = "S. lyc. STAR mapped to 3prime.  Default parameters FeatureCounts counting")
+```
 
 ### Below not run on 3'DGE stuff yet
 
 
 Investigate...
 Lets take a look at the bam file and extract reads from a few genes with 0 mapped reads.  Skip chromosome 0
-```{r}
+```{r, eval=FALSE}
 reads <- scanBam(file="spen_threeprime_sim_1/STAR_1Aligned.sortedByCoord.out.bam",
                  param = ScanBamParam(what=scanBamWhat(),
                                       tag=c("NH","HI","AS","nM")))[[1]]
@@ -405,7 +413,7 @@ ggplot(length.cutoff.plot.data,aes(x=genes,y=correlation,label=cutoff)) + geom_l
 how many reads map to the wrong gene?
 
 note: there is ranges data for each read mapping.  So I can compare that to the GTF ranges.
-```{r mismapping}
+```{r mismapping, eval=FALSE}
 lyc.transcript.gr <- import("~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_gene_models.gff3",feature.type="mRNA")
 reads.df.map <- na.omit(reads.df)
 reads.gr <- with(reads.df.map,GRanges(seqnames=rname,
@@ -461,28 +469,16 @@ save(list=grep("reads",ls(),invert = TRUE,value=T),file="rnaseqSim_no_read_data.
 
 Next steps: some comparative genomic alignments for the genes that aren't behaving well.  (ideas: BLAT produces PSL files and IGV can read those.  Or use STAR.  Or use BLAST and the blast2sam).
 
-```{r BLAT install, eval=FALSE, engine='bash'}
-brew install blat
-```
 
 ```{r run BLAT, engine='bash', eval=FALSE}
 blat ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa -q=rna -t=dna -minMatch=4 ~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot_orthlogs_only.fa -maxIntron=20000 penCDS_to_lycGENME.psl
 #setting minMatch to 4 reduces number of overlaps from ~6300 to 3300
 ```
 
-Map _real_ reads as comparision
-```{r map_real,eval=FALSE}
-RunStar(fasta = "/Volumes/temp-o-matic/temp_SolRAID_restore/Solexa_runs_Data/Filtered_fastq_by_seedling_exp/merged_files/PEN.seedlings.fq",
-        prefix = "STAR_1",
-        dir = "spen_real",
-        n=12,
-        param.file = "../STAR.params.whitney.1")
-```
-
 
 Now look in IGV (Note: Need to use IGVtools to sort and index the .psl file)
 
-```{r}
+```{r, eval=FALSE}
 head(reads.df.map.single.overlap[reads.df.map.single.overlap$mismap,c("qname","gene.lyc","gene.mapped.to","mapnear")],100)
 sort(table(reads.df.map.single.overlap$gene.lyc[reads.df.map.single.overlap$mismap]))
 ```
@@ -497,7 +493,7 @@ Solyc01g110960.2.1 (497): Much Confusion
 
 ### 5 examples of genes with zero mapping
 
-```{r}
+```{r, eval=FALSE}
 pen.count.comparison.1.cutoff300.1.3[pen.count.comparison.1.cutoff300.1.3$count.ratio==Inf,c("lyc.id","count.known","gene.length.ratio.pen.lyc")]
 ```
 
@@ -511,7 +507,7 @@ Many of these issues could be dealt with by
 1. Eliminating genes with overlapping LYC to LYC or PEN to LYC transcripts. 
 2. Using the BLAT results to eliminate transcripts with poor homology.
 
-```{r}
+```{r, eval=FALSE}
 lyc.lyc.overlaps <- findOverlaps(lyc.transcript.gr,lyc.transcript.gr) #all overlaps including self on self
 lyc.lyc.overlaps <- lyc.lyc.overlaps[queryHits(lyc.lyc.overlaps)!=subjectHits(lyc.lyc.overlaps),] #limit to non-self overlaps
 lyc.lyc.overlaps <- substr(unique(mcols(lyc.transcript.gr)[queryHits(lyc.lyc.overlaps),"Name"]),1,16)
@@ -526,7 +522,7 @@ pen.pen.overlaps <- unique(mcols(pen.transcript.gr)[queryHits(pen.pen.overlaps),
 ```
 
 Now if we eliminate these genes how are our count comparisons?
-```{r}
+```{r, eval=FALSE}
 pen.count.comparison.1$flag <- "none"
 pen.count.comparison.1 <- within(pen.count.comparison.1,{
 
