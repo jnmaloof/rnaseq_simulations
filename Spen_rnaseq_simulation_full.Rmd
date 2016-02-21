@@ -12,6 +12,8 @@ output:
 ```{r setup, include=FALSE}
 library(knitr)
 opts_chunk$set(cache=TRUE)
+opts_chunk$set(warnings=FALSE)
+opts_chunk$set(messages=FALSE)
 ```
 
 
@@ -277,7 +279,7 @@ reads.df$pen.lyc.gene.length.ratio <- reads.df$pen.gene.length / reads.df$lyc.ge
 ```
 
 ## Reads plotted by genes hit and mismatches
-```{r, fig_height=5,fig_width=8}
+```{r, fig_height=5,fig_width=8, echo=FALSE}
 ggplot(reads.df,aes(x=as.factor(NH),y=nM,group=NH)) + geom_point(stat="sum") + scale_size(breaks=seq(0,1,.1),range=c(1,15)) + xlab("Number of genes hit") + ylab("Number of mismatches")
 ```
 
@@ -298,20 +300,21 @@ ggplot(reads.df,aes(x=pen.zero.map,y=pen.lyc.gene.length.ratio,fill=multimap)) +
 
 ## Gene length effects
 
-```{r}
+```{r, echo=FALSE,results='hide'}
 ggplot(pen.count.comparison.1,aes(x=gene.length.diff.pen.lyc,y=count.ratio.known.mapped)) + geom_point(alpha=0.1) + scale_y_log10() + scale_x_log10(breaks=c(1,10,100,200,300,500,1000))
 ```
 
 
 ## Gene length effects 2
 
-```{r}
+```{r, echo=FALSE, results='hide'}
 ggplot(pen.count.comparison.1,aes(x=gene.length.ratio.pen.lyc,y=count.ratio.known.mapped))  + scale_y_log10() + scale_x_log10(breaks=c(.1,.5,seq(1,2,.2),3,5,10)) + geom_hline(yintercept=1,color="blue") + geom_vline(xintercept=1,color="blue") + geom_point(alpha=.1)
 ```
 
 
-## cutoffs
-```{r}
+## Remove genes
+Remove genes with gene length ratio > 1.3 or gene length difference > 300bp
+```{r, echo=FALSE, results='hide'}
 #reasonable cutoffs might be a gene.length.ratio > 1.3 or a gene length difference of > 300
 
 pen.count.comparison.1.cutoff1.3 <- pen.count.comparison.1[pen.count.comparison.1$gene.length.ratio.pen.lyc < 1.3,]
@@ -346,13 +349,12 @@ combined.cutoff.plot.data <-rbind(length.cutoff.plot.data,ratio.cutoff.plot.data
 
 ggplot(combined.cutoff.plot.data,aes(x=genes,y=correlation,color=type)) + geom_line() 
 
-ggplot(length.cutoff.plot.data,aes(x=genes,y=correlation,label=cutoff)) + geom_line() + geom_text(aes(label=cutoff),size=2.5,vjust=-1,hjust=-.3) 
+#ggplot(length.cutoff.plot.data,aes(x=genes,y=correlation,label=cutoff)) + geom_line() + geom_text(aes(label=cutoff),size=2.5,vjust=-1,hjust=-.3) 
 ```
 
-# how many reads map to the wrong gene?
+## how many reads map to the wrong gene?
 
-note: there is ranges data for each read mapping.  So I can compare that to the GTF ranges.
-```{r mismapping}
+```{r mismapping, echo=FALSE, results='hide'}
 lyc.transcript.gr <- import("~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_gene_models.gff3",feature.type="mRNA")
 reads.df.map <- na.omit(reads.df)
 reads.gr <- with(reads.df.map,GRanges(seqnames=rname,
@@ -404,19 +406,35 @@ sum(reads.df.map.single.overlap$mismap[!reads.df.map.single.overlap$mapnear]) / 
 save(list=grep("reads",ls(),invert = TRUE,value=T),file="rnaseqSim_no_read_data.Rdata")
 ```
 
-Next steps: some comparative genomic alignments for the genes that aren't behaving well.  (ideas: BLAT produces PSL files and IGV can read those.  Or use STAR.  Or use BLAST and the blast2sam).
+Percent reads mapped to wrong gene:
+```{r }
+with(reads.df.map.single.overlap,sum(mapnear & mismap) / sum(mismap))
+```
 
-```{r BLAT install, eval=FALSE, engine='bash'}
+Percent reads mapped to wrong gene (distant):
+```{r}
+sum(reads.df.map.single.overlap$mismap[!reads.df.map.single.overlap$mapnear]) / nrow(reads.df.map.single.overlap)
+```
+
+
+## why mismapping?
+Investigate by looking at where S.pen genes map on S.lyc chromosomes.
+
+Are the S. pen "Orthlogs" really mapping to their cognate S.lyc gene?
+
+Use BLAT to map S. pen predicted cDNAs to S. lyc genome.
+
+```{r BLAT install, eval=FALSE, engine='bash', echo=FALSE}
 brew install blat
 ```
 
-```{r run BLAT, engine='bash', eval=FALSE}
+```{r run BLAT, engine='bash', eval=FALSE, echo=FALSE}
 blat ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa -q=rna -t=dna -minMatch=4 ~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot_orthlogs_only.fa -maxIntron=20000 penCDS_to_lycGENME.psl
 #setting minMatch to 4 reduces number of overlaps from ~6300 to 3300
 ```
 
 ## Map _real_ reads as comparision
-```{r map_real,eval=FALSE}
+```{r map_real,eval=FALSE, echo=FALSE}
 RunStar(fasta = "/Volumes/temp-o-matic/temp_SolRAID_restore/Solexa_runs_Data/Filtered_fastq_by_seedling_exp/merged_files/PEN.seedlings.fq",
         prefix = "STAR_1",
         dir = "spen_real",
@@ -432,7 +450,7 @@ head(reads.df.map.single.overlap[reads.df.map.single.overlap$mismap,c("qname","g
 sort(table(reads.df.map.single.overlap$gene.lyc[reads.df.map.single.overlap$mismap]))
 ```
 
-### 5 examples of genes with mismapping
+## 5 examples of genes with mismapping
 
 Solyc02g090930.2.1 (12): Tandem Repeat with Solyc02g090940.2.1
 Solyc04g072480.2.1 (30): Nothing obviously strange
@@ -440,9 +458,9 @@ Solyc03g051930.2.1 (70): PEN gene spans two LYC genes
 Solyc02g079850.2.1 (150): PEN gene spans two LYC genes
 Solyc01g110960.2.1 (497): Much Confusion
 
-### 5 examples of genes with zero mapping
+## 5 examples of genes with zero mapping
 
-```{r}
+```{r, echo=FALSE}
 pen.count.comparison.1.cutoff300.1.3[pen.count.comparison.1.cutoff300.1.3$count.ratio==Inf,c("lyc.id","count.known","gene.length.ratio.pen.lyc")]
 ```
 
@@ -452,11 +470,13 @@ Solyc05g023780.1: Repetitive region
 Solyc08g015710.1: Very small region of homology
 Solyc11g056540.1: BLAT did not find a match
 
+## How to deal with this?
+
 Many of these issues could be dealt with by
 1. Eliminating genes with overlapping LYC to LYC or PEN to LYC transcripts. 
 2. Using the BLAT results to eliminate transcripts with poor homology.
 
-```{r}
+```{r, echo=FALSE}
 lyc.lyc.overlaps <- findOverlaps(lyc.transcript.gr,lyc.transcript.gr) #all overlaps including self on self
 lyc.lyc.overlaps <- lyc.lyc.overlaps[queryHits(lyc.lyc.overlaps)!=subjectHits(lyc.lyc.overlaps),] #limit to non-self overlaps
 lyc.lyc.overlaps <- substr(unique(mcols(lyc.transcript.gr)[queryHits(lyc.lyc.overlaps),"Name"]),1,16)
@@ -470,8 +490,8 @@ pen.pen.overlaps <- pen.pen.overlaps[names(pen.transcript.gr)[queryHits(pen.pen.
 pen.pen.overlaps <- unique(mcols(pen.transcript.gr)[queryHits(pen.pen.overlaps),"lyc.ID"]) 
 ```
 
-Now if we eliminate these genes how are our count comparisons?
-```{r}
+## Original
+```{r, echo=FALSE}
 pen.count.comparison.1$flag <- "none"
 pen.count.comparison.1 <- within(pen.count.comparison.1,{
                                  flag[pen.count.comparison.1$lyc.id %in% lyc.lyc.overlaps] <- "lyc.lyc.overlap"
@@ -479,7 +499,12 @@ pen.count.comparison.1 <- within(pen.count.comparison.1,{
                                  }
                                  )
 with(pen.count.comparison.1,cor(count.known,count.mapped))
-with(pen.count.comparison.1[pen.count.comparison.1$flag=="none",],cor(count.known,count.mapped))
 ```
 
+## With bad annotations removed
+Genes where more than one _S.lyc_ or more than one _S.pen_ annotation overlap are removed.
+```{r}
+with(pen.count.comparison.1[pen.count.comparison.1$flag=="none",],cor(count.known,count.mapped))
+```
+Pretty good!
 
