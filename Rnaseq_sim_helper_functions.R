@@ -23,11 +23,11 @@ RunStar <- function(fasta, prefix, param.file = "../STAR.params.whitney.1", args
 
 
 #Function for retrieving mapped read counts per gene
-GetMappedCounts <- function(prefix,
+GetMappedCounts <- function(prefix=NA,
                             dir=".",
                             type="STAR",
                             gff="~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_gene_models.gff3",
-                            bam)
+                            bam=NA)
 {
   #Get mapped counts from alignment output files
   if(type=="STAR") {
@@ -62,10 +62,11 @@ GetMappedCounts <- function(prefix,
     return(mapped_counts)
   }
   if(type=="transcripts") { #ie reads are mapped to a cDNA-type reference rather than genomic.
-    if(is.null(bam)) stop(paste("bamfile needed"))
+    if(is.na(bam)) stop(paste("bamfile needed"))
     bampath <- file.path(dir,bam)
     mapped_counts <- read.table(pipe(paste("samtools idxstats",bampath)))[,-2]
     colnames(mapped_counts) <- c("ID","count","unmapped")
+    mapped_counts$ID <- substr(mapped_counts$ID,1,16)
     return(mapped_counts)
   }
   stop(paste("Unknown result type:",type))}
