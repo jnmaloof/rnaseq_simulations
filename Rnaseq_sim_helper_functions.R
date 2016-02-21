@@ -26,7 +26,8 @@ RunStar <- function(fasta, prefix, param.file = "../STAR.params.whitney.1", args
 GetMappedCounts <- function(prefix,
                             dir=".",
                             type="STAR",
-                            gff="~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_gene_models.gff3")
+                            gff="~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_gene_models.gff3",
+                            bam)
 {
   #Get mapped counts from alignment output files
   if(type=="STAR") {
@@ -37,9 +38,13 @@ GetMappedCounts <- function(prefix,
     mapped_counts$ID <- sub("gene:","",mapped_counts$ID,fixed=TRUE)
     return(mapped_counts)
   }
-  if(type=="STAR-featureCounts") {
+  if(grepl("featureCounts",type)) { 
+    bampath <- ifelse(type=="STAR-featureCounts",
+                      file.path(dir,paste(prefix,"Aligned.sortedByCoord.out.bam",sep="")),
+                      file.path(dir,bam)
+    )
     mapped_counts_list <- featureCounts(
-      files=file.path(dir,paste(prefix,"Aligned.sortedByCoord.out.bam",sep="")),
+      files=bampath,
       annot.ext=getAbsolutePath(gff,expandTilde = TRUE),
       isGTFAnnotationFile = TRUE,
       GTF.attrType = "Parent",
@@ -54,6 +59,13 @@ GetMappedCounts <- function(prefix,
                             colnames(stat) <- c("ID","count")
                             rbind(stat,mapped_counts)
     })
+    return(mapped_counts)
+  }
+  if(type=="transcripts") { #ie reads are mapped to a cDNA-type reference rather than genomic.
+    if(is.null(bam)) stop(paste("bamfile needed"))
+    bampath <- file.path(dir,bam)
+    mapped_counts <- read.table(pipe(paste("samtools idxstats",bampath)))[,-2]
+    colnames(mapped_counts) <- c("ID","count","unmapped")
     return(mapped_counts)
   }
   stop(paste("Unknown result type:",type))}
