@@ -21,6 +21,19 @@ RunStar <- function(fasta, prefix, param.file = "../STAR.params.whitney.1", args
   setwd(old.dir)
 }
 
+RunKallisto <- function(fasta, index, dir) {
+  # old.dir <- getwd()
+  # if (!dir.exists(dir)) dir.create(dir,recursive = TRUE) 
+  # setwd(dir)
+  bampath <- file.path(dir,"kallisto.bam")
+  system(paste("kallisto quant --single --pseudobam --plaintext -l 250 -s 50 -i ", 
+               index, 
+               "-o ", dir, 
+               fasta, 
+               "| samtools view -Sb - >", bampath))
+  #system(paste("samtools index", bampath))
+  # setwd(old.dir)
+}
 
 #Function for retrieving mapped read counts per gene
 GetMappedCounts <- function(prefix=NA,
@@ -56,8 +69,8 @@ GetMappedCounts <- function(prefix=NA,
       count=mapped_counts_list$counts[,1])
     mapped_counts$ID <- substr(sub("mRNA:","",mapped_counts$ID,fixed=TRUE),1,16)
     mapped_counts <- with(mapped_counts_list,{
-                            colnames(stat) <- c("ID","count")
-                            rbind(stat,mapped_counts)
+      colnames(stat) <- c("ID","count")
+      rbind(stat,mapped_counts)
     })
     return(mapped_counts)
   }
@@ -69,7 +82,16 @@ GetMappedCounts <- function(prefix=NA,
     mapped_counts$ID <- substr(mapped_counts$ID,1,16)
     return(mapped_counts)
   }
-  stop(paste("Unknown result type:",type))}
+  if(type=="kallisto") {
+    countspath <- file.path(dir,"kallisto/abundance.tsv")
+    mapped_counts <- read.delim(countspath,stringsAsFactors = FALSE)[,c(1,4)]
+    head(mapped_counts)
+    colnames(mapped_counts) <- c("ID","count")
+    mapped_counts$ID <- substr(mapped_counts$ID,18,33)
+    return(mapped_counts)
+  }
+  stop(paste("Unknown result type:",type))
+}
 
 
 #Function to compare known and mapped counts
