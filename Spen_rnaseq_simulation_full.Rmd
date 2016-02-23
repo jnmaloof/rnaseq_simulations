@@ -120,12 +120,12 @@ writeXStringSet(lyc.transcripts.small,file="~/Sequences/ref_genomes/tomato/ITAG2
 ```
 
 ## Simulate PEN RNAseq reads
-```{r simulate_pen_1, eval=FALSE}
+```{r simulate_pen_2, eval=TRUE}
 #3 minutes for 1M reads
 #15 minutes for 5M reads
 system.time(
   simulate_experiment(fasta="~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot_orthlogs_only.fa",
-                      outdir="spen_sim_1",
+                      outdir="spen_sim_2",
                       num_reps=1,
                       readlen=45,
                       #line below gives ~ 10M reads, scaled by transcript length and following a rexp distribution
@@ -136,16 +136,16 @@ system.time(
                       bias="rnaf"
   )
 )
-system("sed 's!/!;!' spen_sim_1/sample_01.fasta > spen_sim_1/sample_01_renamed.fasta") #this allows original gene_names to be kept
-system("rm spen_sim_1/sample_01.fasta")
-system("gzip spen_sim_1/sample_01_renamed.fasta")
+system("sed 's!/!;!' spen_sim_2/sample_01.fasta > spen_sim_2/sample_01_renamed.fasta") #this allows original gene_names to be kept
+system("rm spen_sim_2/sample_01.fasta")
+system("gzip spen_sim_2/sample_01_renamed.fasta")
 ```
 
 ## Simulate LYC RNAseq reads
-```{r simulate_lyc_1, eval=FALSE}
+```{r simulate_lyc_2, eval=TRUE}
 system.time(
   simulate_experiment(fasta="~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.pen.orthologs.only.fasta",
-                      outdir="slyc_sim_1",
+                      outdir="slyc_sim_2",
                       num_reps=1,
                       readlen=45,
                       #line below gives ~ 10M reads, scaled by transcript length and following a rexp distribution
@@ -156,20 +156,20 @@ system.time(
                       bias="rnaf"
   )
 )
-system("sed 's!/!;!' slyc_sim_1/sample_01.fasta > slyc_sim_1/sample_01_renamed.fasta") #this allows original gene_names to be kept
-system("rm slyc_sim_1/sample_01.fasta")
-system("gzip slyc_sim_1/sample_01_renamed.fasta")
+system("sed 's!/!;!' slyc_sim_2/sample_01.fasta > slyc_sim_2/sample_01_renamed.fasta") #this allows original gene_names to be kept
+system("rm slyc_sim_2/sample_01.fasta")
+system("gzip slyc_sim_2/sample_01_renamed.fasta")
 ```
 
 ## calculate known counts
 
 Use external python script
 ```{r known_counts}
-pen.known.counts <- read.table(pipe("./CountGene.py spen_sim_1/sample_01_renamed.fasta.gz"),col.names=c("id","count"),stringsAsFactors = FALSE)
+pen.known.counts <- read.table(pipe("./CountGene.py spen_sim_2/sample_01_renamed.fasta.gz"),col.names=c("id","count"),stringsAsFactors = FALSE)
 pen.known.counts$lyc.id <- substr(pen.known.counts$id,18,33)
 head(pen.known.counts)
 
-lyc.known.counts <- read.table(pipe("./CountGene.py slyc_sim_1/sample_01_renamed.fasta.gz"),col.names=c("id","count"),stringsAsFactors = FALSE)
+lyc.known.counts <- read.table(pipe("./CountGene.py slyc_sim_2/sample_01_renamed.fasta.gz"),col.names=c("id","count"),stringsAsFactors = FALSE)
 lyc.known.counts$lyc.id <- substr(lyc.known.counts$id,18,33)
 head(lyc.known.counts)
 ```
@@ -203,9 +203,9 @@ quantMode GeneCounts
 ```
 
 ## Run it!
-```{r RunStar_1, eval=FALSE}
-RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="spen_sim_1",n=2)
-RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="slyc_sim_1",n=2)
+```{r RunStar_1, eval=TRUE}
+RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="spen_sim_2",n=2)
+RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="slyc_sim_2",n=2)
 ```
 __note__ I needed to use STAR2.5 for this to work.
 
@@ -221,11 +221,11 @@ __note__ I needed to use STAR2.5 for this to work.
 ## Load in mapped counts
 ```{r get_mapped_counts }
 #using the STAR built-in counter
-pen.mapped.counts.STAR <- GetMappedCounts(prefix = "STAR_1", dir = "spen_sim_1")
-lyc.mapped.counts.STAR <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_sim_1")
+pen.mapped.counts.STAR <- GetMappedCounts(prefix = "STAR_1", dir = "spen_sim_2")
+lyc.mapped.counts.STAR <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_sim_2")
 #using featureCounts from Rsubread
-pen.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "spen_sim_1", type="STAR-featureCounts")
-lyc.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_sim_1", type="STAR-featureCounts")
+pen.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "spen_sim_2", type="STAR-featureCounts")
+lyc.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_sim_2", type="STAR-featureCounts")
 ```
 
 ## _S. pennellii_
@@ -249,7 +249,7 @@ _S. lyc_ maps much better.  What is messing up the _S. pen_ mapping?
 ##Investigate...
 Lets take a look at the bam file and extract reads from a few genes with 0 mapped reads.
 ```{r, echo=FALSE,results='hide'}
-reads <- scanBam(file="spen_sim_1/STAR_1Aligned.sortedByCoord.out.bam",
+reads <- scanBam(file="spen_sim_2/STAR_1Aligned.sortedByCoord.out.bam",
                  param = ScanBamParam(what=scanBamWhat(),
                                       tag=c("NH","HI","AS","nM")))[[1]]
 #note: DO NOT directly convert reads to a data frame.  Uses lots of memory.  instead remove the very large reads column.  See below.
@@ -534,12 +534,12 @@ gzcat  sample_01_renamed.fasta.gz | perl ~/bin/fasta_to_fastq.pl  - | gzip > sam
 
 ## run kallisto
 ```{r run_kallisto, eval=TRUE}
-RunKallisto(fasta = "spen_sim_1/sample_01_renamed.fastq.gz", index = "ITAG2.4._cds.pen.orthlogsonly.kai", dir = "spen_sim_1/kallisto" )
+RunKallisto(fasta = "spen_sim_2/sample_01_renamed.fastq.gz", index = "ITAG2.4._cds.pen.orthlogsonly.kai", dir = "spen_sim_2/kallisto" )
 ```
 
 ## Load in mapped counts
 ```{r get_mapped_counts_kallisto }
-pen.mapped.counts <- GetMappedCounts(dir = "spen_sim_1/kallisto", type="kallisto-transcripts")
+pen.mapped.counts <- GetMappedCounts(dir = "spen_sim_2/kallisto", type="kallisto-transcripts")
 ```
 
 ## _S. pennellii_
@@ -579,12 +579,12 @@ kallisto index -k 21 -i ITAG2.4._cds.pen.orthlogsonly.21.kai ~/Sequences/ref_gen
 
 ## run kallisto
 ```{r run_kallisto_21, eval=TRUE}
-RunKallisto(fasta = "spen_sim_1/sample_01_renamed.fastq.gz", index = "ITAG2.4._cds.pen.orthlogsonly.21.kai", dir = "spen_sim_1/kallisto21" )
+RunKallisto(fasta = "spen_sim_2/sample_01_renamed.fastq.gz", index = "ITAG2.4._cds.pen.orthlogsonly.21.kai", dir = "spen_sim_2/kallisto21" )
 ```
 
 ## Load in mapped counts
 ```{r get_mapped_counts_kallisto21 }
-pen.mapped.counts <- GetMappedCounts(dir = "spen_sim_1/kallisto21", type="kallisto-transcripts")
+pen.mapped.counts <- GetMappedCounts(dir = "spen_sim_2/kallisto21", type="kallisto-transcripts")
 ```
 
 ## _S. pennellii_
