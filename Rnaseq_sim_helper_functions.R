@@ -82,8 +82,8 @@ GetMappedCounts <- function(prefix=NA,
     mapped_counts$ID <- substr(mapped_counts$ID,1,16)
     return(mapped_counts)
   }
-  if(type=="kallisto") {
-    countspath <- file.path(dir,"kallisto/abundance.tsv")
+  if(type=="kallisto-transcripts") {
+    countspath <- file.path(dir,"abundance.tsv")
     mapped_counts <- read.delim(countspath,stringsAsFactors = FALSE)[,c(1,4)]
     head(mapped_counts)
     colnames(mapped_counts) <- c("ID","count")

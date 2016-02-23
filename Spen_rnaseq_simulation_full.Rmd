@@ -533,19 +533,19 @@ gzcat  sample_01_renamed.fasta.gz | perl ~/bin/fasta_to_fastq.pl  - | gzip > sam
 
 
 ## run kallisto
-```{r, eval=FALSE, engine='bash'}
-RunKallisto(fasta = "spen_sim_1/sample_01_renamed.fastq.gz", index = "ITAG2.4._cds.pen.orthlogsonly.kai", dir = "spen_sim_1/kallisto" )
+```{r, eval=TRUE, engine='bash'}
+RunKallisto(fasta = "spen_sim_1/sample_01_renamed.fastq.gz", index = "ITAG2.4._cds.pen.orthlogsonly.kai", dir = "spen_sim_1/kallisto_cDNA" )
 ```
 
 ## Load in mapped counts
 ```{r get_mapped_counts_kallisto }
-pen.mapped.counts <- GetMappedCounts(dir = "spen_sim_1", type="kallisto")
+pen.mapped.counts <- GetMappedCounts(dir = "spen_sim_1/kallisto", type="kallisto-transcripts")
 ```
 
 ## _S. pennellii_
 Compare known to mapped counts  
 ```{r compare_spen1_kallisto, echo=FALSE, results='hide', fig.width=8, fig.height=5}
-pen.count.comparison.1 <- CompareCounts(pen.known.counts, pen.mapped.counts, chrom.separate=FALSE, title = "S. pen.  STAR mapped.  Default parameters.  FeatureCounts counting")
+pen.count.comparison.1 <- CompareCounts(pen.known.counts, pen.mapped.counts, chrom.separate=FALSE, title = "S. pen. kallisto mapped to cDNA.  Default parameters.  Kallisto counting")
 ```
 
 ## Remove overlapping genes
@@ -566,5 +566,57 @@ Genes where more than one _S.lyc_ or more than one _S.pen_ annotation overlap ar
 ```{r}
 with(pen.count.comparison.1[pen.count.comparison.1$flag=="none",],cor(count.known,count.mapped))
 ```
+
 Pretty good!
+
+# Mapping to GENOMIC reference with kallisto
+
+## build index
+only needs to be done once:
+```{r, eval=FALSE, engine='bash'}
+kallisto index -i S.lyc_Chrom2.50.kai ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/
+```
+But I wonder if different kmers would give different results
+
+## For kallisto fasta needs to be converted to fastq
+Download [converter](https://code.google.com/archive/p/fasta-to-fastq/downloads)
+```{r, engine='bash',eval=FALSE}
+gzcat  sample_01_renamed.fasta.gz | perl ~/bin/fasta_to_fastq.pl  - | gzip > sample_01_renamed.fastq.gz
+```
+
+
+## run kallisto
+```{r, eval=TRUE, engine='bash'}
+RunKallisto(fasta = "spen_sim_1/sample_01_renamed.fastq.gz", index = "S.lyc_Chrom2.50.kai", dir = "spen_sim_1/kallisto_genomic" )
+```
+
+## Load in mapped counts
+```{r get_mapped_counts_kallisto }
+pen.mapped.counts <- GetMappedCounts(dir = "spen_sim_1/kallisto_genomic", type="featureCounts",bam="kallisto.bam")
+```
+
+## _S. pennellii_
+Compare known to mapped counts  
+```{r compare_spen1_kallisto, echo=FALSE, results='hide', fig.width=8, fig.height=5}
+pen.count.comparison.1 <- CompareCounts(pen.known.counts, pen.mapped.counts, chrom.separate=FALSE, title = "S. pen. kallisto mapped to genome.  Default parameters.  FeatureCounts counting")
+```
+
+## Remove overlapping genes
+
+## Original
+```{r, echo=FALSE}
+pen.count.comparison.1$flag <- "none"
+pen.count.comparison.1 <- within(pen.count.comparison.1,{
+                                 flag[pen.count.comparison.1$lyc.id %in% lyc.lyc.overlaps] <- "lyc.lyc.overlap"
+                                 flag[pen.count.comparison.1$lyc.id %in% pen.pen.overlaps] <- "pen.pen.overlap"
+                                 }
+                                 )
+with(pen.count.comparison.1,cor(count.known,count.mapped))
+```
+
+## With bad annotations removed
+Genes where more than one _S.lyc_ or more than one _S.pen_ annotation overlap are removed.
+```{r}
+with(pen.count.comparison.1[pen.count.comparison.1$flag=="none",],cor(count.known,count.mapped))
+```
 
