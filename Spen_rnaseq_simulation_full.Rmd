@@ -112,11 +112,13 @@ names(lyc.gene.length) <- names(lyc.transcripts)
 ```
 
 ## Limit ourselves to genes where orthology is clear:
-```{r reduce_data, eval=FALSE}
+```{r reduce_data, eval=TRUE}
 pen.transcripts.small <- pen.transcripts[nchar(names(pen.transcripts))>16]
-writeXStringSet(pen.transcripts.small,file="~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot_orthlogs_only.fa")
 lyc.transcripts.small <- lyc.transcripts[nchar(names(lyc.transcripts)) > 18]
-writeXStringSet(lyc.transcripts.small,file="~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.pen.orthologs.only.fasta")
+
+if(! file.exists("~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot_orthlogs_only.fa")) writeXStringSet(pen.transcripts.small,file="~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot_orthlogs_only.fa")
+
+if(! file.exists("~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.pen.orthologs.only.fasta")) writeXStringSet(lyc.transcripts.small,file="~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.pen.orthologs.only.fasta")
 ```
 
 ## Simulate PEN RNAseq reads
