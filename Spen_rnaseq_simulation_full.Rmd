@@ -533,7 +533,7 @@ gzcat  sample_01_renamed.fasta.gz | perl ~/bin/fasta_to_fastq.pl  - | gzip > sam
 
 
 ## run kallisto
-```{r, eval=TRUE, engine='bash'}
+```{r run_kallisto, eval=TRUE}
 RunKallisto(fasta = "spen_sim_1/sample_01_renamed.fastq.gz", index = "ITAG2.4._cds.pen.orthlogsonly.kai", dir = "spen_sim_1/kallisto" )
 ```
 
@@ -578,7 +578,7 @@ kallisto index -k 21 -i ITAG2.4._cds.pen.orthlogsonly.21.kai ~/Sequences/ref_gen
 ```
 
 ## run kallisto
-```{r, eval=TRUE, engine='bash'}
+```{r run_kallisto_21, eval=TRUE}
 RunKallisto(fasta = "spen_sim_1/sample_01_renamed.fastq.gz", index = "ITAG2.4._cds.pen.orthlogsonly.21.kai", dir = "spen_sim_1/kallisto21" )
 ```
 
