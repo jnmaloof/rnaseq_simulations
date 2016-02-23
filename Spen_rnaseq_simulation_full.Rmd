@@ -132,7 +132,7 @@ system.time(
                       readlen=45,
                       #line below gives ~ 10M reads, scaled by transcript length and following a rexp distribution
                       reads_per_transcript = round(rexp(n=length(pen.transcripts.small)) * width(pen.transcripts.small) * 
-                                                     1e7/ sum(width(pen.transcripts.small) )),
+                                                     1e7/ sum(width(pen.transcripts.small) ))+1,
                       paired=FALSE,
                       error_model="illumina5",
                       bias="rnaf"
@@ -152,7 +152,7 @@ system.time(
                       readlen=45,
                       #line below gives ~ 10M reads, scaled by transcript length and following a rexp distribution
                       reads_per_transcript = round(rexp(n=length(lyc.transcripts.small)) * width(lyc.transcripts.small) * 
-                                                     1e7/ sum(width(lyc.transcripts.small) )),
+                                                     1e7/ sum(width(lyc.transcripts.small) ))+1,
                       paired=FALSE,
                       error_model="illumina5",
                       bias="rnaf"
