@@ -79,7 +79,7 @@ source("Rnaseq_sim_helper_functions.R")
 Load Spen and Slyc transcripts  
 Spen CDS fasta can be obtained from [SGN](ftp://ftp.solgenomics.net/genomes/Solanum_pennellii/annotations/)
 slyc fasta is also from [SGN](ftp://ftp.sgn.cornell.edu/genomes/Solanum_lycopersicum/annotation/ITAG2.4_release/)
-```{r load_Spen, eval=TRUE}
+```{r load_transcripts, eval=TRUE}
 pen.transcripts <-  readDNAStringSet("~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot.fa")
 head(pen.transcripts)
 names(pen.transcripts[1:10])
@@ -128,9 +128,9 @@ system.time(
                       outdir="spen_sim_1",
                       num_reps=1,
                       readlen=45,
-                      #line below gives ~ 5M reads, scaled by transcript length
-                      reads_per_transcript = round(width(pen.transcripts.small) * 
-                                                     5e6/ sum(width(pen.transcripts.small) )),
+                      #line below gives ~ 10M reads, scaled by transcript length and following a rexp distribution
+                      reads_per_transcript = round(rexp(n=length(pen.transcripts.small)) * width(pen.transcripts.small) * 
+                                                     1e7/ sum(width(pen.transcripts.small) )),
                       paired=FALSE,
                       error_model="illumina5",
                       bias="rnaf"
@@ -148,9 +148,9 @@ system.time(
                       outdir="slyc_sim_1",
                       num_reps=1,
                       readlen=45,
-                      #line below gives ~ 5M reads, scaled by transcript length
-                      reads_per_transcript = round(width(lyc.transcripts.small) * 
-                                                     5e6/ sum(width(pen.transcripts.small) )),
+                      #line below gives ~ 10M reads, scaled by transcript length and following a rexp distribution
+                      reads_per_transcript = round(rexp(n=length(lyc.transcripts.small)) * width(lyc.transcripts.small) * 
+                                                     1e7/ sum(width(lyc.transcripts.small) )),
                       paired=FALSE,
                       error_model="illumina5",
                       bias="rnaf"
