@@ -205,9 +205,9 @@ quantMode GeneCounts
 ```
 
 ## Run it!
-```{r RunStar_1, eval=TRUE}
-RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="spen_sim_2",n=2)
-RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1",dir="slyc_sim_2",n=2)
+```{r RunStar_1, eval=FALSE}
+RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1", param.file = "../STAR.params.whitney.1", dir="spen_sim_2",n=12)
+RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1", param.file = "../STAR.params.whitney.1", dir="slyc_sim_2",n=12)
 ```
 __note__ I needed to use STAR2.5 for this to work.
 
@@ -223,8 +223,8 @@ __note__ I needed to use STAR2.5 for this to work.
 ## Load in mapped counts
 ```{r get_mapped_counts }
 #using the STAR built-in counter
-pen.mapped.counts.STAR <- GetMappedCounts(prefix = "STAR_1", dir = "spen_sim_2")
-lyc.mapped.counts.STAR <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_sim_2")
+#pen.mapped.counts.STAR <- GetMappedCounts(prefix = "STAR_1", dir = "spen_sim_2")
+#lyc.mapped.counts.STAR <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_sim_2")
 #using featureCounts from Rsubread
 pen.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "spen_sim_2", type="STAR-featureCounts")
 lyc.mapped.counts <- GetMappedCounts(prefix = "STAR_1", dir = "slyc_sim_2", type="STAR-featureCounts")
