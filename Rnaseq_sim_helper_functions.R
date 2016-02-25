@@ -26,11 +26,11 @@ RunKallisto <- function(fasta, index, dir) {
   # if (!dir.exists(dir)) dir.create(dir,recursive = TRUE) 
   # setwd(dir)
   bampath <- file.path(dir,"kallisto.bam")
-  system(paste("kallisto quant --single --pseudobam --plaintext -l 250 -s 50 -i ", 
+  system(paste("kallisto quant --single --plaintext -l 250 -s 50 -i ", 
                index, 
                "-o ", dir, 
-               fasta, 
-               "| samtools view -Sb - >", bampath))
+               fasta))#, 
+               #"| samtools view -Sb - >", bampath))
   #system(paste("samtools index", bampath))
   # setwd(old.dir)
 }
