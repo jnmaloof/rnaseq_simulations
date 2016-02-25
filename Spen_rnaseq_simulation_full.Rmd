@@ -11,6 +11,7 @@ output:
 
 ```{r setup, include=FALSE}
 library(knitr)
+opts_chunk$set(cache.lazy=FALSE)
 opts_chunk$set(cache=TRUE)
 opts_chunk$set(warnings=FALSE)
 opts_chunk$set(messages=FALSE)
@@ -56,14 +57,13 @@ biocLite("polyester")
 ```
 
 ## Install STAR (only needs to be done once)
-(NOTE THAT VERSION 2.5 IS NEEDED AND THIS IS NOT CURRENTLY IN HOMEBREW)
 ```{r install_STAR, eval=FALSE, engine='bash'}
 brew install rna-star
 brew install gcc5 
 ```
 
 ## load libraries and helper scripts
-```{r, cache=FALSE}
+```{r load_libraries, cache=FALSE}
 library(polyester)
 library(Biostrings)
 library(ggplot2)
@@ -122,7 +122,7 @@ if(! file.exists("~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.p
 ```
 
 ## Simulate PEN RNAseq reads
-```{r simulate_pen_2, eval=TRUE}
+```{r simulate_pen_2, eval=FALSE}
 #3 minutes for 1M reads
 #15 minutes for 5M reads
 system.time(
@@ -144,7 +144,7 @@ system("gzip spen_sim_2/sample_01_renamed.fasta")
 ```
 
 ## Simulate LYC RNAseq reads
-```{r simulate_lyc_2, eval=TRUE}
+```{r simulate_lyc_2, eval=FALSE}
 system.time(
   simulate_experiment(fasta="~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.pen.orthologs.only.fasta",
                       outdir="slyc_sim_2",
@@ -209,7 +209,6 @@ quantMode GeneCounts
 RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1", param.file = "../STAR.params.whitney.1", dir="spen_sim_2",n=12)
 RunStar(fasta="sample_01_renamed.fasta.gz",prefix = "STAR_1", param.file = "../STAR.params.whitney.1", dir="slyc_sim_2",n=12)
 ```
-__note__ I needed to use STAR2.5 for this to work.
 
 # Evaluate results from STAR
 
@@ -250,7 +249,7 @@ _S. lyc_ maps much better.  What is messing up the _S. pen_ mapping?
 
 ##Investigate...
 Lets take a look at the bam file and extract reads from a few genes with 0 mapped reads.
-```{r, echo=FALSE,results='hide'}
+```{r read_bam, echo=FALSE,results='hide'}
 reads <- scanBam(file="spen_sim_2/STAR_1Aligned.sortedByCoord.out.bam",
                  param = ScanBamParam(what=scanBamWhat(),
                                       tag=c("NH","HI","AS","nM")))[[1]]
@@ -408,13 +407,20 @@ sum(reads.df.map.single.overlap$mismap[!reads.df.map.single.overlap$mapnear]) / 
 save(list=grep("reads",ls(),invert = TRUE,value=T),file="rnaseqSim_no_read_data.Rdata")
 ```
 
-Percent reads mapped to wrong gene:
-```{r }
+## mismapping
+
+Total mismapping
+```{r mismap_summary_total}
+with(reads.df.map.single.overlap,sum(mismap) / length(mismap))
+```
+
+Of mismaps, what proportion map near to the correct gene:
+```{r mismap_summary_near}
 with(reads.df.map.single.overlap,sum(mapnear & mismap) / sum(mismap))
 ```
 
-Percent reads mapped to wrong gene (distant):
-```{r}
+Proportion reads mapped to wrong gene (distant):
+```{r mismap_distant_summary}
 sum(reads.df.map.single.overlap$mismap[!reads.df.map.single.overlap$mapnear]) / nrow(reads.df.map.single.overlap)
 ```
 
@@ -426,11 +432,11 @@ Are the S. pen "Orthlogs" really mapping to their cognate S.lyc gene?
 
 Use BLAT to map S. pen predicted cDNAs to S. lyc genome.
 
-```{r BLAT install, eval=FALSE, engine='bash', echo=FALSE}
+```{r BLAT_install, eval=FALSE, engine='bash', echo=FALSE}
 brew install blat
 ```
 
-```{r run BLAT, engine='bash', eval=FALSE, echo=FALSE}
+```{r run_BLAT, engine='bash', eval=FALSE, echo=FALSE}
 blat ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa -q=rna -t=dna -minMatch=4 ~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot_orthlogs_only.fa -maxIntron=20000 penCDS_to_lycGENME.psl
 #setting minMatch to 4 reduces number of overlaps from ~6300 to 3300
 ```
@@ -510,7 +516,7 @@ with(pen.count.comparison.1[pen.count.comparison.1$flag=="none",],cor(count.know
 ```
 Pretty good!
 
-# Mapping to cDNA refernce with kallisto
+# Mapping to cDNA reference with kallisto
 
 [Kallisto](https://pachterlab.github.io/kallisto/about.html) is a read quantification software that works without aligning.  I would like to see how it performs in this context.
 
@@ -523,20 +529,20 @@ brew install kallisto
 ## build index
 only needs to be done once:
 ```{r, eval=FALSE, engine='bash'}
-kallisto index -i ITAG2.4._cds.pen.orthlogsonly.kai ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.pen.orthologs.only.fasta
+kallisto index -i ITAG2.4._cds.pen.orthlogsonly.31.kai ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.pen.orthologs.only.fasta
 ```
 But I wonder if different kmers would give different results
 
 ## For kallisto fasta needs to be converted to fastq
 Download [converter](https://code.google.com/archive/p/fasta-to-fastq/downloads)
 ```{r, engine='bash',eval=FALSE}
-gzcat  sample_01_renamed.fasta.gz | perl ~/bin/fasta_to_fastq.pl  - | gzip > sample_01_renamed.fastq.gz
+gzcat  spen_sim_2/sample_01_renamed.fasta.gz | perl ~/bin/fasta_to_fastq.pl  - | gzip > spen_sim_2/sample_01_renamed.fastq.gz
+gzcat  slyc_sim_2/sample_01_renamed.fasta.gz | perl ~/bin/fasta_to_fastq.pl  - | gzip > slyc_sim_2/sample_01_renamed.fastq.gz
 ```
-
 
 ## run kallisto
 ```{r run_kallisto, eval=TRUE}
-RunKallisto(fasta = "spen_sim_2/sample_01_renamed.fastq.gz", index = "ITAG2.4._cds.pen.orthlogsonly.kai", dir = "spen_sim_2/kallisto" )
+RunKallisto(fasta = "spen_sim_2/sample_01_renamed.fastq.gz", index = "ITAG2.4._cds.pen.orthlogsonly.31.kai", dir = "spen_sim_2/kallisto31" )
 ```
 
 ## Load in mapped counts
@@ -546,29 +552,25 @@ pen.mapped.counts <- GetMappedCounts(dir = "spen_sim_2/kallisto", type="kallisto
 
 ## _S. pennellii_
 Compare known to mapped counts  
-```{r compare_spen1_kallisto, echo=FALSE, results='hide', fig.width=8, fig.height=5}
-pen.count.comparison.1 <- CompareCounts(pen.known.counts, pen.mapped.counts, chrom.separate=FALSE, title = "S. pen. kallisto mapped to cDNA.  Default parameters.  Kallisto counting")
+```{r compare_spen1_kallisto_default, echo=FALSE, results='hide', fig.width=8, fig.height=5}
+pen.count.comparison.1 <- CompareCounts(pen.known.counts, pen.mapped.counts, chrom.separate=FALSE, title = "S. pen. kallisto mapped to cDNA.  Default parameters.  Kallisto counting")  
 ```
 
-## Remove overlapping genes
-
-## Original
-```{r, echo=FALSE}
+## Remove overlapping genes and plot
+Genes with more than one _S.lyc_ or more than one _S.pen_ annotation overlap are removed.
+```{r remove_bad_kallisto_default, echo=FALSE}
 pen.count.comparison.1$flag <- "none"
 pen.count.comparison.1 <- within(pen.count.comparison.1,{
                                  flag[pen.count.comparison.1$lyc.id %in% lyc.lyc.overlaps] <- "lyc.lyc.overlap"
                                  flag[pen.count.comparison.1$lyc.id %in% pen.pen.overlaps] <- "pen.pen.overlap"
                                  }
                                  )
-with(pen.count.comparison.1,cor(count.known,count.mapped))
 ```
 
-## With bad annotations removed
-Genes where more than one _S.lyc_ or more than one _S.pen_ annotation overlap are removed.
-```{r}
-with(pen.count.comparison.1[pen.count.comparison.1$flag=="none",],cor(count.known,count.mapped))
+```{r compare_spen1_kallisto_default_bad_removed, echo=FALSE, results='hide', fig.width=8, fig.height=5}
+source("Rnaseq_sim_helper_functions.R")
+CompareCounts(pen.count.comparison.1[pen.count.comparison.1$flag=="none",], chrom.separate = FALSE, title = "S. pen. kallisto mapped to cDNA.  Default parameters.  Kallisto counting.  Overlapping genes removed.")  
 ```
-
 Pretty good!
 
 # Kallisto with 21nt kmers
@@ -592,26 +594,80 @@ pen.mapped.counts <- GetMappedCounts(dir = "spen_sim_2/kallisto21", type="kallis
 ## _S. pennellii_
 Compare known to mapped counts  
 ```{r compare_spen1_kallisto21, echo=FALSE, results='hide', fig.width=8, fig.height=5}
-pen.count.comparison.1 <- CompareCounts(pen.known.counts, pen.mapped.counts, chrom.separate=FALSE, title = "S. pen. kallisto 21 mapped to cDNA.  Default parameters.  Kallisto counting")
+pen.count.comparison.1 <- CompareCounts(pen.known.counts, pen.mapped.counts, chrom.separate=FALSE, title = "S. pen. kallisto mapped to cDNA. 21nt kmer.  Kallisto counting")  
 ```
 
-## Remove overlapping genes
-
-## Original
-```{r, echo=FALSE}
+## Remove overlapping genes and plot
+Genes with more than one _S.lyc_ or more than one _S.pen_ annotation overlap are removed.
+```{r remove_bad_kallisto_21, echo=FALSE}
 pen.count.comparison.1$flag <- "none"
 pen.count.comparison.1 <- within(pen.count.comparison.1,{
                                  flag[pen.count.comparison.1$lyc.id %in% lyc.lyc.overlaps] <- "lyc.lyc.overlap"
                                  flag[pen.count.comparison.1$lyc.id %in% pen.pen.overlaps] <- "pen.pen.overlap"
                                  }
                                  )
-with(pen.count.comparison.1,cor(count.known,count.mapped))
 ```
 
-## With bad annotations removed
-Genes where more than one _S.lyc_ or more than one _S.pen_ annotation overlap are removed.
-```{r}
-with(pen.count.comparison.1[pen.count.comparison.1$flag=="none",],cor(count.known,count.mapped))
+```{r compare_spen1_kallisto21_bad_removed, echo=FALSE, results='hide', fig.width=8, fig.height=5}
+CompareCounts(pen.count.comparison.1[pen.count.comparison.1$flag=="none",], chrom.separate = FALSE, title = "S. pen. kallisto mapped to cDNA.  21nt kmer.  Kallisto counting.  Overlapping genes removed.")  
 ```
 
 Pretty good!
+
+# Optimize Kallisto kmer
+
+## Idea
+
+Lowering the kallisto kmer improved the correlation between known and mapped counts
+
+What is the best kmer?
+
+In this section I will try a bunch of kmers
+
+## Build kalliso indexes for different kmers.
+
+```{r kallisto_kmer_indices, eval=FALSE} 
+#only run once...it will be slow!
+library(snowfall)
+kmers <- c(seq(11,19,2),seq(23,29,2)) #21 and 31 already done
+sfInit(cpu=min(kmers,12),parallel = TRUE)
+sfClusterApply(kmers, function(k) {
+  index.name <- paste("ITAG2.4._cds.pen.orthlogsonly.",k,".kai",sep="")
+  system(paste("kallisto index -k", k,
+               " -i", index.name, 
+               "~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.pen.orthologs.only.fasta"))})
+sfStop()
+```
+
+## Run Kallisto on the different indicies
+
+```{r kallisto_kmer_run}
+library(snowfall)
+indicies <- dir(pattern="[0-9]\\.kai")
+sfInit(cpu=2,parallel = TRUE)
+sfSource("Rnaseq_sim_helper_functions.R")
+sfExport("pen.known.counts","lyc.lyc.overlaps","pen.pen.overlaps","pen.gene.length","lyc.gene.length")
+sfExport(pen.known.counts)
+results <- sfSapply(indicies,function(i) {
+  kmer <- sub("ITAG2\\.4\\._cds\\.pen\\.orthlogsonly\\.([0-9]{2})\\.kai","\\1",i)
+  dir.out <- paste("spen_sim_2/kallisto",kmer,sep="")
+  results <- list()
+  results$time <- system.time(RunKallisto(fasta = "spen_sim_2/sample_01_renamed.fastq.gz", 
+              index = i, 
+              dir = dir.out))
+  pen.mapped.counts <- GetMappedCounts(dir = dir.out, type="kallisto-transcripts")
+  pen.count.comparison <- CompareCounts(pen.known.counts,pen.mapped.counts,plot = FALSE,correlation = FALSE)
+  pen.count.comparison$flag <- "none"
+  pen.count.comparison <- within(pen.count.comparison,{
+                                 flag[pen.count.comparison$lyc.id %in% lyc.lyc.overlaps] <- "lyc.lyc.overlap"
+                                 flag[pen.count.comparison$lyc.id %in% pen.pen.overlaps] <- "pen.pen.overlap"
+                                 }
+                                 )
+  results$corr.all <- with(pen.count.comparison,c(cor(count.known, count.mapped),cor(count.known,count.mapped,method="spearman")))
+  results$corr.bad.removed <- with(pen.count.comparison[pen.count.comparison$flag=="none",],
+                                   c(cor(count.known, count.mapped),cor(count.known,count.mapped,method="spearman")))
+})
+sfStop()
+```
+
+
