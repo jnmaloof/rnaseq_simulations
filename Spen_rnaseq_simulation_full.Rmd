@@ -647,11 +647,11 @@ indicies <- dir(pattern="[0-9]\\.kai")
 sfInit(cpu=2,parallel = TRUE)
 sfSource("Rnaseq_sim_helper_functions.R")
 sfExport("pen.known.counts","lyc.lyc.overlaps","pen.pen.overlaps","pen.gene.length","lyc.gene.length")
-sfExport(pen.known.counts)
-results <- sfSapply(indicies,function(i) {
+results.combined <- sfLapply(indicies,function(i) {
   kmer <- sub("ITAG2\\.4\\._cds\\.pen\\.orthlogsonly\\.([0-9]{2})\\.kai","\\1",i)
   dir.out <- paste("spen_sim_2/kallisto",kmer,sep="")
   results <- list()
+  results$kmer <- as.numeric(kmer)
   results$time <- system.time(RunKallisto(fasta = "spen_sim_2/sample_01_renamed.fastq.gz", 
               index = i, 
               dir = dir.out))
@@ -666,8 +666,27 @@ results <- sfSapply(indicies,function(i) {
   results$corr.all <- with(pen.count.comparison,c(cor(count.known, count.mapped),cor(count.known,count.mapped,method="spearman")))
   results$corr.bad.removed <- with(pen.count.comparison[pen.count.comparison$flag=="none",],
                                    c(cor(count.known, count.mapped),cor(count.known,count.mapped,method="spearman")))
+  return(results)
 })
 sfStop()
 ```
+
+## kalliso kmer effects
+```{r kallisto_kmer_summarize, echo=FALSE, fig.width=2, fig.height=2}
+plot(x=unlist(lapply(results.combined,function(x) x$kmer)),y=unlist(lapply(results.combined, function(x) x$time["elapsed"])),type="b",ylab="time",xlab="kmer")
+
+plot(x=unlist(lapply(results.combined,function(x) x$kmer)),y=unlist(lapply(results.combined, function(x) x$corr.all[1])),type="b",ylab="Pearson correlation",xlab="kmer",main="Pearson all genes")
+
+matplot(x=unlist(lapply(results.combined,function(x) x$kmer)),
+        y=ldply(results.combined, function(x) x$corr.all),type="b",pch=1
+        ,ylab="Correlation",xlab="kmer",main="All genes")
+legend("bottom",legend=c("Pearson","Spearman"),lty=1:2,col=1:2,bty="n")
+
+matplot(x=unlist(lapply(results.combined,function(x) x$kmer)),
+        y=ldply(results.combined, function(x) x$corr.bad.removed),type="b",pch=1
+        ,ylab="Correlation",xlab="kmer",main="'Good' genes")
+legend("bottom",legend=c("Pearson","Spearman"),lty=1:2,col=1:2,bty="n")
+```
+So, kmer=19 is the best
 
 
