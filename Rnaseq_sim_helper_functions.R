@@ -96,20 +96,30 @@ GetMappedCounts <- function(prefix=NA,
 
 #Function to compare known and mapped counts
 
-CompareCounts <- function(known.counts,mapped.counts, title= NULL, plot = TRUE, chrom.separate = TRUE, correlation=TRUE, return.merged.table=TRUE) {
-  count.comparison <- merge(known.counts,mapped.counts,by.x="lyc.id",by.y="ID",suffixes=c(".known",".mapped"))
-  count.comparison$chrom <- substr(count.comparison$lyc.id,6,7)
-  read.correlation <- cor(count.comparison$count.known,count.comparison$count.mapped)
-  if (correlation) print(read.correlation)
+CompareCounts <- function(known.counts,mapped.counts=NA, title= NULL, plot = TRUE, chrom.separate = TRUE, correlation=TRUE, return.merged.table=!is.na(mapped.counts[[1]][1])) {
+  if(!is.na(mapped.counts[[1]][1])) {
+    count.comparison <- merge(known.counts,mapped.counts,by.x="lyc.id",by.y="ID",suffixes=c(".known",".mapped"))
+    count.comparison$chrom <- substr(count.comparison$lyc.id,6,7)
+  } else {
+    count.comparison <- known.counts
+  }
+  read.correlation.pearson <- round(cor(count.comparison$count.known,count.comparison$count.mapped),3)
+  read.correlation.spearman <- round(cor(count.comparison$count.known,count.comparison$count.mapped,method = "spearman"),3)
+  if (correlation) print(paste("Pearson correlation:", read.correlation.pearson, "  Spearman correlation:",read.correlation.spearman))
   if(plot & !chrom.separate) {
     plot(count.comparison$count.known,count.comparison$count.mapped,
-         main=paste(title,"\nCorrelation:", 
-                    round(read.correlation,3)))
+         main=paste(title,"\nPearson:", 
+                    read.correlation.pearson,
+                    "Spearman",
+                    read.correlation.spearman))
   }
   if(plot & chrom.separate) {
     print(qplot(x=count.known,y=count.mapped,data=count.comparison) + 
             facet_wrap(~ chrom) + 
-            ggtitle(paste(title,"\nCorrelation:", round(read.correlation,3))))
+            ggtitle(paste(title,"\nCorrelation:", 
+                          read.correlation.pearson,
+                          "Spearman",
+                          read.correlation.spearman)))
   }
   if(return.merged.table) {
     count.comparison$count.diff.known.mapped <- count.comparison$count.known - count.comparison$count.mapped
