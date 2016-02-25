@@ -71,6 +71,7 @@ library(Rsamtools)
 library(rtracklayer)
 library(Rsubread)
 library(R.utils)
+library(plyr)
 setwd("~/Documents/Lab Notebook support/2015/rnaseq_simulations")
 source("Rnaseq_sim_helper_functions.R")
 ```
@@ -672,10 +673,8 @@ sfStop()
 ```
 
 ## kalliso kmer effects
-```{r kallisto_kmer_summarize, echo=FALSE, fig.width=2, fig.height=2}
-plot(x=unlist(lapply(results.combined,function(x) x$kmer)),y=unlist(lapply(results.combined, function(x) x$time["elapsed"])),type="b",ylab="time",xlab="kmer")
-
-plot(x=unlist(lapply(results.combined,function(x) x$kmer)),y=unlist(lapply(results.combined, function(x) x$corr.all[1])),type="b",ylab="Pearson correlation",xlab="kmer",main="Pearson all genes")
+```{r kallisto_kmer_summarize, echo=FALSE, fig.width=4, fig.height=6}
+plot(x=unlist(lapply(results.combined,function(x) x$kmer)),y=unlist(lapply(results.combined, function(x) x$time["elapsed"])),type="b",ylab="time (sec)",xlab="kmer",main="kallisto time for different kmer values")
 
 matplot(x=unlist(lapply(results.combined,function(x) x$kmer)),
         y=ldply(results.combined, function(x) x$corr.all),type="b",pch=1
@@ -687,6 +686,7 @@ matplot(x=unlist(lapply(results.combined,function(x) x$kmer)),
         ,ylab="Correlation",xlab="kmer",main="'Good' genes")
 legend("bottom",legend=c("Pearson","Spearman"),lty=1:2,col=1:2,bty="n")
 ```
+
 So, kmer=19 is the best
 
 
