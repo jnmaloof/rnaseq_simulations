@@ -28,6 +28,7 @@ This script is for 3' DGE
 
 ## load libraries and helper scripts
 ```{r,cache=FALSE}
+library(plyr)
 library(polyester)
 library(Biostrings)
 library(ggplot2)
@@ -322,24 +323,24 @@ lyc.count.comparison.1.to3prime <- CompareCounts(lyc.known.counts, lyc.mapped.co
 Next steps: some comparative genomic alignments for the genes that aren't behaving well.  (ideas: BLAT produces PSL files and IGV can read those.  Or use STAR.  Or use BLAST and the blast2sam).
 
 ## BLAT
-```{r run BLAT, engine='bash', eval=FALSE}
+```{r run_BLAT, engine='bash', eval=FALSE}
 blat ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa -q=rna -t=dna -minMatch=4 ~/Sequences/ref_genomes/S.pen/Spenn-v2-3primeutr-250-250-orthologs-only.fa -maxIntron=20000 pen_3prime_to_lycGENME.psl
 ```
 
 ## find overlaps
 ```{r, eval=TRUE}
-lyc.transcript.gr <- import("~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_three_prime_250_250.gff3",feature.type="mRNA")
-lyc.lyc.overlaps <- findOverlaps(lyc.transcript.gr,lyc.transcript.gr) #all overlaps including self on self
+lyc.3prime.gr <- import("~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_three_prime_250_250.gff3",feature.type="mRNA")
+lyc.lyc.overlaps <- findOverlaps(lyc.3prime.gr,lyc.3prime.gr) #all overlaps including self on self
 lyc.lyc.overlaps <- lyc.lyc.overlaps[queryHits(lyc.lyc.overlaps)!=subjectHits(lyc.lyc.overlaps),] #limit to non-self overlaps
-lyc.lyc.overlaps <- substr(unique(mcols(lyc.transcript.gr)[queryHits(lyc.lyc.overlaps),"Name"]),1,16)
+lyc.lyc.overlaps <- substr(unique(mcols(lyc.3prime.gr)[queryHits(lyc.lyc.overlaps),"Name"]),1,16)
 
-pen.transcript.gr <- PSL2Granges(file="pen_3prime_to_lycGENME.psl")
-pen.pen.overlaps <- findOverlaps(pen.transcript.gr,pen.transcript.gr) #all overlaps including self on self
+pen.3prime.gr <- PSL2Granges(file="pen_3prime_to_lycGENME.psl")
+pen.pen.overlaps <- findOverlaps(pen.3prime.gr,pen.3prime.gr) #all overlaps including self on self
 
 #need additional step to limit to non-self overlaps because BLAT returns multiple hits in the same region.  Make sure that the overlap is with the same gene
-pen.pen.overlaps <- pen.pen.overlaps[names(pen.transcript.gr)[queryHits(pen.pen.overlaps)]!=names(pen.transcript.gr)[subjectHits(pen.pen.overlaps)]] 
+pen.pen.overlaps <- pen.pen.overlaps[names(pen.3prime.gr)[queryHits(pen.pen.overlaps)]!=names(pen.3prime.gr)[subjectHits(pen.pen.overlaps)]] 
 
-pen.pen.overlaps <- unique(mcols(pen.transcript.gr)[queryHits(pen.pen.overlaps),"lyc.ID"]) 
+pen.pen.overlaps <- unique(mcols(pen.3prime.gr)[queryHits(pen.pen.overlaps),"lyc.ID"]) 
 ```
 
 ## flag overlaps
@@ -437,6 +438,151 @@ pen.count.comparison.1 <- within(pen.count.comparison.1,{
 CompareCounts(pen.count.comparison.1[pen.count.comparison.1$flag=="none",], chrom.separate = FALSE, title = "S. pen. kallisto mapped to cDNA.  21nt kmer.  Kallisto counting.  Overlapping genes removed.")  
 ```
 
+# kallisto to Brad assemblies
 
-# kallisto to 3' CDS
+## Background
 
+Brad used Abyss to make assemblies from the 3' reads.  I will BLAT these against the genome to assign best hits and then map to them.  I will also try an alternative approach, blat against Heinz cDNA.
+
+Download files from coloma.plb.ucdavis.edu/Network/Servers/avalanche.plb.ucdavis.edu/Volumes/Mammoth/Users/bradtownsley/Assemblies_Sneo_Spen
+
+## Load contigs and take a look
+
+```{r penn_contigs}
+penn_contigs <- readDNAStringSet("Assemblies_Sneo_Spen/pen_Contigs_Singlets.longer_than_100.fa")
+length(penn_contigs)
+hist(log10(nchar(penn_contigs)),main="Length of S. pen 3' contigs")
+```
+
+## Blat Against Heinz Genomic
+
+```{r blat_penn_contigs_genome, engine='bash'}
+blat ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa Assemblies_Sneo_Spen/pen_Contigs_Singlets.longer_than_100.fa -q=rna -t=dna -minMatch=4 -maxIntron=20000 -dots=1000 Assemblies_Sneo_Spen/pen_3prime_contigs_to_lyc_genome.psl
+```
+
+## Blat against Heinz cDNA
+
+```{r blat_penn_contigs_cDNA, engine='bash'}
+blat ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.fasta Assemblies_Sneo_Spen/pen_Contigs_Singlets.longer_than_100.fa -q=rna -t=dna -minMatch=4 -maxIntron=20000 -dots=1000 Assemblies_Sneo_Spen/pen_3prime_contigs_to_lyc_cDNA.psl
+```
+
+## Blat Stats
+
+```{r load blat_penn_genome, echo=FALSE, results='hide'}
+blat_penn.results.genome <- read.delim("Assemblies_Sneo_Spen/pen_3prime_contigs_to_lyc_genome.psl",skip=5,stringsAsFactors = FALSE,header=FALSE)
+blat_penn.results.genome_header <- read.delim("Assemblies_Sneo_Spen/pen_3prime_contigs_to_lyc_genome.psl",skip=2,nrows=2,stringsAsFactors = FALSE,header=FALSE)
+names(blat_penn.results.genome) <- make.names(paste(trimws(blat_penn.results.genome_header[1,]),trimws(blat_penn.results.genome_header[2,]),sep=""))
+head(blat_penn.results.genome)
+summary(blat_penn.results.genome)
+```
+
+```{r load blat_penn_cDNA, echo=FALSE, results='hide'}
+blat_penn.results.cDNA <- read.delim("Assemblies_Sneo_Spen/pen_3prime_contigs_to_lyc_cDNA.psl",skip=5,stringsAsFactors = FALSE,header=FALSE)
+blat_penn.results.cDNA_header <- read.delim("Assemblies_Sneo_Spen/pen_3prime_contigs_to_lyc_cDNA.psl",skip=2,nrows=2,stringsAsFactors = FALSE,header=FALSE)
+names(blat_penn.results.cDNA) <- make.names(paste(trimws(blat_penn.results.cDNA_header[1,]),trimws(blat_penn.results.cDNA_header[2,]),sep=""))
+head(blat_penn.results.cDNA)
+summary(blat_penn.results.cDNA)
+```
+
+### BLAT against genome
+`r length(unique(blat_penn.results.genome$Qname))` of `r length(penn_contigs)` had at least one hit in S.lyc.
+
+Number of contigs that have a unique hit:
+```{r blat_penn_Stats1_genome, echo=FALSE}
+sum(table(blat_penn.results.genome$Qname)==1)
+```
+
+### BLAT against cDNA
+
+`r length(unique(blat_penn.results.cDNA$Qname))` of `r length(penn_contigs)` had at least one hit in S.lyc.
+
+Number of contigs that have a unique hit:
+```{r blat_penn_Stats1_cDNA, echo=FALSE}
+sum(table(blat_penn.results.cDNA$Qname)==1)
+```
+
+
+## Filter contigs
+
+For contigs that have multiple hits retain those where the best hit is substnatially better than the next best hit.
+
+### Genome
+The number of contigs after filtering is:
+
+```{r filter_penn_blat_genome, echo=FALSE}
+
+blat_penn.results.genome.filtered <- lapply(unique(blat_penn.results.genome$Qname),function(contig) {#for each unique value of contig
+  tmp.blat <- blat_penn.results.genome[blat_penn.results.genome$Qname==contig,] #make a temporary data frame with just the data from that contig
+  if(nrow(tmp.blat)<2) return(tmp.blat) #if there is only a single row, return it
+  tmp.score <- (tmp.blat$match - tmp.blat$mis.match) / tmp.blat$Qsize[1]
+  tmp.blat <- tmp.blat[order(tmp.score,decreasing = TRUE),] #sort the temporary blat results
+  tmp.score <- sort(tmp.score,decreasing = TRUE)
+  if(tmp.score[1] > tmp.score[2]*1.1) { #check to see how much better the first hit is from the second
+    return(tmp.blat[1,]) #return the best if it is much better than the second hit
+  } else {
+    return(tmp.blat[0,])#as.data.frame(matrix(NA,ncol=ncol(tmp.blat),nrow=1)))
+  }
+  }
+  )
+
+blat_penn.results.genome.filtered <- ldply(blat_penn.results.genome.filtered) #convert from list to data frame
+
+nrow(blat_penn.results.genome.filtered)
+
+# head(blat_penn.results.genome.filtered)
+```
+
+### cDNA
+The number of contigs after filtering is:
+
+```{r filter_penn_blat_cDNA, echo=FALSE}
+
+blat_penn.results.cDNA.filtered <- lapply(unique(blat_penn.results.cDNA$Qname),function(contig) {#for each unique value of contig
+  tmp.blat <- blat_penn.results.cDNA[blat_penn.results.cDNA$Qname==contig,] #make a temporary data frame with just the data from that contig
+  if(nrow(tmp.blat)<2) return(tmp.blat) #if there is only a single row, return it
+  tmp.score <- (tmp.blat$match - tmp.blat$mis.match) / tmp.blat$Qsize[1]
+  tmp.blat <- tmp.blat[order(tmp.score,decreasing = TRUE),] #sort the temporary blat results
+  tmp.score <- sort(tmp.score,decreasing = TRUE)
+  if(tmp.score[1] > tmp.score[2]*1.1) { #check to see how much better the first hit is from the second
+    return(tmp.blat[1,]) #return the best if it is much better than the second hit
+  } else {
+    return(tmp.blat[0,])#as.data.frame(matrix(NA,ncol=ncol(tmp.blat),nrow=1)))
+  }
+  }
+  )
+
+blat_penn.results.cDNA.filtered <- ldply(blat_penn.results.cDNA.filtered) #convert from list to data frame
+
+nrow(blat_penn.results.cDNA.filtered)
+
+# head(blat_penn.results.cDNA.filtered)
+```
+
+## Overlaps with lyc genes
+
+### genome
+Of these spen prime contigs, how many of them overlap a S.lyc gene in the genomic BLAT?
+
+```{r contig_lyc_overlaps, echo=FALSE}
+lyc.transcript.gr <- import("~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_gene_models.gff3",feature.type="mRNA")
+
+pen.contig.gr <- PSL2Granges(file="Assemblies_Sneo_Spen/pen_3prime_contigs_to_lyc_genome.psl")
+
+pen.contig.gr.filter <- pen.contig.gr[blat_penn.results.genome.filtered$Qname]
+
+pen.lyc.overlaps <- findOverlaps(pen.contig.gr.filter,lyc.transcript.gr) 
+
+length(unique(queryHits(pen.lyc.overlaps)))
+```
+
+How many lyc genes are hit?
+```{r contig_lyc_overlaps_genome_gene_gits, echo=FALSE}
+length(unique(subjectHits(pen.lyc.overlaps)))
+```
+
+### cDNA
+How many lyc genes are hit?
+
+```{r contig_lyc_cDNA_gene_hits, echo=FALSE}
+length(unique(blat_penn.results.cDNA.filtered$Tname))
+```
