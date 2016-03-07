@@ -456,14 +456,26 @@ hist(log10(nchar(penn_contigs)),main="Length of S. pen 3' contigs")
 
 ## Blat Against Heinz Genomic
 
+psl output
 ```{r blat_penn_contigs_genome, engine='bash'}
 blat ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa Assemblies_Sneo_Spen/pen_Contigs_Singlets.longer_than_100.fa -q=rna -t=dna -minMatch=4 -maxIntron=20000 -dots=1000 Assemblies_Sneo_Spen/pen_3prime_contigs_to_lyc_genome.psl
+```
+
+also BLAST-like output
+```{r blat_penn_contigs_genome_blast_output, engine='bash'}
+blat ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa Assemblies_Sneo_Spen/pen_Contigs_Singlets.longer_than_100.fa -q=rna -t=dna -minMatch=4 -maxIntron=20000 -out=blast Assemblies_Sneo_Spen/pen_3prime_contigs_to_lyc_genome.blat.out
 ```
 
 ## Blat against Heinz cDNA
 
 ```{r blat_penn_contigs_cDNA, engine='bash'}
 blat ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.fasta Assemblies_Sneo_Spen/pen_Contigs_Singlets.longer_than_100.fa -q=rna -t=dna -minMatch=4 -maxIntron=20000 -dots=1000 Assemblies_Sneo_Spen/pen_3prime_contigs_to_lyc_cDNA.psl
+```
+
+BLAST-like output
+
+```{r blat_penn_contigs_cDNA_blast_output, engine='bash'}
+blat ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.fasta Assemblies_Sneo_Spen/pen_Contigs_Singlets.longer_than_100.fa -q=rna -t=dna -minMatch=4 -maxIntron=20000 -out=blast Assemblies_Sneo_Spen/pen_3prime_contigs_to_lyc_cDNA.blat.out
 ```
 
 ## Blat Stats
@@ -504,7 +516,7 @@ sum(table(blat_penn.results.cDNA$Qname)==1)
 
 ## Filter contigs
 
-For contigs that have multiple hits retain those where the best hit is substnatially better than the next best hit.
+For contigs that have multiple hits retain those where the best hit is substantially better than the next best hit.
 
 ### Genome
 The number of contigs after filtering is:
