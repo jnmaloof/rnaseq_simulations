@@ -41,6 +41,7 @@ if (system("hostname",intern=TRUE) == "whitney")
   setwd("~/Documents/Lab Notebook support/2015/rnaseq_simulations")
 source("Rnaseq_sim_helper_functions.R")
 library(data.table)
+library(msa)
 ```
 
 ## Generate 3'UTR transcripts (S. pen)
@@ -598,3 +599,34 @@ How many lyc genes are hit?
 ```{r contig_lyc_cDNA_gene_hits, echo=FALSE}
 length(unique(blat_penn.results.cDNA.filtered$Tname))
 ```
+
+## concatenate contigs based on blat
+
+I want to compile all of the contigs that hit a gene into a single contig.  I should pay attention to strand and, ideally, order.  After looking at some of this I think that the best way is to do a cap3 assembly contigs if there are multiple contigs.  Because I already know that these map to one gene I can use relaxed parameters in cap3.
+
+```{r combine_contigs_blat_genome, eval=FALSE}
+# for each subject hit
+# grab all query hits
+# figure out strandedness
+# reverse comp if needed and string together by order
+
+#Strip extra characters from names
+names(penn_assemblies) <- sub(" .*$","",names(penn_assemblies))   
+
+setwd("Assemblies_Sneo_Spen")
+
+#cleanup
+if (file.exists("Spen_contigs_singletons_round2.fa")) file.remove("Spen_contigs_singletons_round2.fa")
+
+for(s in unique(subjectHits(pen.lyc.overlaps))) {
+  gene.name <- lyc.transcript.gr[s]$Name
+  tmp.contig.index <- pen.lyc.overlaps[subjectHits(pen.lyc.overlaps)==s,]
+  tmp.contig.names <- names(pen.contig.gr.filter[queryHits(tmp.contigs)])
+  tmp.contig.seq <- penn_assemblies[names(penn_assemblies) %in% tmp.contig.names]
+  writeXStringSet(tmp.contig.seq,"tmp.fa") # add the gene name...
+  system("cap3 tmp.fa -o 16 -s 251 -z 1 -p 66  -j 31")
+  system(paste("sed 's/>/>",gene.name,"|/' tmp.fa.cap.contigs tmp.fa.cap.singlets >> Spen_contigs_singletons_round2.fa"))
+}
+setwd("../")
+```
+
