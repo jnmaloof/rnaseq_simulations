@@ -621,12 +621,23 @@ if (file.exists("Spen_contigs_singletons_round2.fa")) file.remove("Spen_contigs_
 for(s in unique(subjectHits(pen.lyc.overlaps))) {
   gene.name <- lyc.transcript.gr[s]$Name
   tmp.contig.index <- pen.lyc.overlaps[subjectHits(pen.lyc.overlaps)==s,]
-  tmp.contig.names <- names(pen.contig.gr.filter[queryHits(tmp.contigs)])
+  tmp.contig.names <- names(pen.contig.gr.filter[queryHits(tmp.contig.index)])
   tmp.contig.seq <- penn_assemblies[names(penn_assemblies) %in% tmp.contig.names]
   writeXStringSet(tmp.contig.seq,"tmp.fa") # add the gene name...
   system("cap3 tmp.fa -o 16 -s 251 -z 1 -p 66  -j 31")
-  system(paste("sed 's/>/>",gene.name,"|/' tmp.fa.cap.contigs tmp.fa.cap.singlets >> Spen_contigs_singletons_round2.fa"))
+  system(paste("sed 's/>/>",gene.name,"|/' tmp.fa.cap.contigs tmp.fa.cap.singlets >> Spen_contigs_singletons_round2.fa",sep="")) #not quite right...should put all in one fasta.  Doesn't matter in this case.
 }
+
+file.remove(dir(pattern="tmp.fa"))
+
 setwd("../")
 ```
+
+```{r view_Assemblies2}
+pen.contigs2 <- readDNAStringSet("Assemblies_Sneo_Spen/Spen_contigs_singletons_round2.fa")
+names(pen.contigs2)
+grep("Contig1",names(pen.contigs2),invert = T)
+hist(q)
+```
+
 
