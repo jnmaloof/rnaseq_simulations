@@ -42,6 +42,7 @@ if (system("hostname",intern=TRUE) == "whitney")
 source("Rnaseq_sim_helper_functions.R")
 library(data.table)
 library(msa)
+library(snowfall)
 ```
 
 ## Generate 3'UTR transcripts (S. pen)
@@ -602,13 +603,16 @@ length(unique(blat_penn.results.cDNA.filtered$Tname))
 
 ## concatenate contigs based on blat
 
-I want to compile all of the contigs that hit a gene into a single contig.  I should pay attention to strand and, ideally, order.  After looking at some of this I think that the best way is to do a cap3 assembly contigs if there are multiple contigs.  Because I already know that these map to one gene I can use relaxed parameters in cap3.
+I want to compile all of the contigs that hit a gene into a single contig.  I should pay attention to strand and, ideally, order.  After looking at some of this I think that the best way is to do a cap3 assembly for contigs if there are multiple contigs.  Because I already know that these map to one gene I can use relaxed parameters in cap3.
 
 ```{r combine_contigs_blat_genome, eval=FALSE}
 # for each subject hit
 # grab all query hits
-# figure out strandedness
-# reverse comp if needed and string together by order
+# then use cap3 to assemble if possible
+
+# BLAT the cap3 results
+
+# then string together based on cap3
 
 #Strip extra characters from names
 names(penn_assemblies) <- sub(" .*$","",names(penn_assemblies))   
@@ -618,26 +622,105 @@ setwd("Assemblies_Sneo_Spen")
 #cleanup
 if (file.exists("Spen_contigs_singletons_round2.fa")) file.remove("Spen_contigs_singletons_round2.fa")
 
-for(s in unique(subjectHits(pen.lyc.overlaps))) {
+system.time(for(s in unique(subjectHits(pen.lyc.overlaps))) {
   gene.name <- lyc.transcript.gr[s]$Name
   tmp.contig.index <- pen.lyc.overlaps[subjectHits(pen.lyc.overlaps)==s,]
   tmp.contig.names <- names(pen.contig.gr.filter[queryHits(tmp.contig.index)])
   tmp.contig.seq <- penn_assemblies[names(penn_assemblies) %in% tmp.contig.names]
   writeXStringSet(tmp.contig.seq,"tmp.fa") # add the gene name...
-  system("cap3 tmp.fa -o 16 -s 251 -z 1 -p 66  -j 31")
-  system(paste("sed 's/>/>",gene.name,"|/' tmp.fa.cap.contigs tmp.fa.cap.singlets >> Spen_contigs_singletons_round2.fa",sep="")) #not quite right...should put all in one fasta.  Doesn't matter in this case.
-}
+  system("cap3 tmp.fa -o 16 -s 251 -z 1 -p 66  -j 31",ignore.stdout = TRUE)
+  
+  system(paste("sed 's/>/>",gene.name,"|/' tmp.fa.cap.contigs tmp.fa.cap.singlets >> Spen_contigs_singletons_round2.fa",sep="")) 
+})
 
 file.remove(dir(pattern="tmp.fa"))
 
 setwd("../")
 ```
 
-```{r view_Assemblies2}
-pen.contigs2 <- readDNAStringSet("Assemblies_Sneo_Spen/Spen_contigs_singletons_round2.fa")
-names(pen.contigs2)
-grep("Contig1",names(pen.contigs2),invert = T)
-hist(q)
+##  Load new contigs
+```{r Load_new}
+Spen_contigs_round2.seq <- readDNAStringSet("Assemblies_Sneo_Spen/Spen_contigs_singletons_round2.fa")
+Spen_contigs_round2.seq
 ```
 
+## BLAT new contigs
+```{r BLAT_new, engine='bash', eval=FALSE}
+blat ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.fasta Assemblies_Sneo_Spen/Spen_contigs_singletons_round2.fa -q=rna -t=dna -minMatch=4 -maxIntron=20000  Assemblies_Sneo_Spen/pen_3prime_contigs_V2_to_lyc_cDNA.psl
+```
 
+## Load new BLAT
+```{r load_blat_new}
+blat_penn_2.results.cDNA <- read.delim("Assemblies_Sneo_Spen/pen_3prime_contigs_V2_to_lyc_cDNA.psl",skip=5,stringsAsFactors = FALSE,header=FALSE)
+blat_penn_2.results.cDNA_header <- read.delim("Assemblies_Sneo_Spen/pen_3prime_contigs_V2_to_lyc_cDNA.psl",skip=2,nrows=2,stringsAsFactors = FALSE,header=FALSE)
+names(blat_penn_2.results.cDNA) <- make.names(paste(trimws(blat_penn_2.results.cDNA_header[1,]),trimws(blat_penn_2.results.cDNA_header[2,]),sep=""))
+head(blat_penn_2.results.cDNA,15)
+summary(blat_penn_2.results.cDNA)
+```
+
+## Filter new BLAT
+
+filter to only keep results where the query hits the same gene again
+
+```{r filter_new_BLAT}
+blat_penn_2.results.cDNA.filtered <- blat_penn_2.results.cDNA[
+  gsub("\\|[[:print:]]+$","",blat_penn_2.results.cDNA$Qname) == blat_penn_2.results.cDNA$Tname,]
+nrow(blat_penn.results.cDNA)
+nrow(blat_penn_2.results.cDNA.filtered)
+length(unique(blat_penn_2.results.cDNA$Qname)) #contigs before filtering
+length(unique(blat_penn_2.results.cDNA.filtered$Qname)) #contigs after filtering
+length(unique(blat_penn_2.results.cDNA$Tname)) #genes before filtering
+length(unique(blat_penn_2.results.cDNA.filtered$Tname)) #genes after filtering
+```
+
+```{r concatenate}
+#for each gene
+#get all contigs
+#concatenate into a new DNA String
+#add to new DNA string set
+
+sfInit(parallel = TRUE,cpus = 2)
+sfLibrary(Biostrings)
+sfExport("blat_penn_2.results.cDNA.filtered","Spen_contigs_round2.seq")
+
+# 2 minutes on 2 cpus
+final_spen_contigs <- unlist(DNAStringSetList(sfLapply(unique(blat_penn_2.results.cDNA.filtered$Tname),function(g) {
+  tmp.blat <- blat_penn_2.results.cDNA.filtered[blat_penn_2.results.cDNA.filtered$Tname==g,]
+  tmp.blat <- tmp.blat[order(tmp.blat$Tstart),]
+  concat.seq <- DNAStringSet(unlist(DNAStringSet(apply(tmp.blat,1,function(x) {
+     tmp.seq <- Spen_contigs_round2.seq[[x[["Qname"]]]]
+     if (x["strand"] == "-") reverseComplement(tmp.seq) else (tmp.seq)
+   }))))
+  names(concat.seq) <- paste(g,"Spen_Contig",sep="|")
+  concat.seq
+})))
+
+sfStop()
+
+writeXStringSet(final_spen_contigs,"Assemblies_Sneo_Spen/Spen_contigs_singletons_round3.fa")
+   
+```
+
+```{r make_kallisto_index_round3, eval=FALSE, engine='bash'}
+kallisto index -k 19 -i Assemblies_Sneo_Spen/Spen_3prime_contigs_round3.kai Assemblies_Sneo_Spen/Spen_contigs_singletons_round3.fa
+```
+
+## run kallisto
+```{r run_kallisto_19_round3, eval=TRUE}
+RunKallisto(fasta = "spen_threeprime_sim_1/sample_01_renamed.fastq.gz", index = "Assemblies_Sneo_Spen/Spen_3prime_contigs_round3.kai", dir = "spen_threeprime_sim_1/kallisto19_round3" )
+```
+
+## Load in mapped counts
+```{r get_mapped_counts_kallisto19_round3 }
+pen.mapped.counts <- GetMappedCounts(dir = "spen_threeprime_sim_1/kallisto19_round3", type="kallisto-transcripts")
+```
+
+# need to get working below here.
+
+## _S. pennellii_
+Compare known to mapped counts  
+```{r compare_spen1_kallisto19, echo=FALSE, results='hide', fig.width=8, fig.height=5}
+pen.count.comparison.1 <- CompareCounts(pen.known.counts, pen.mapped.counts, chrom.separate=FALSE, title = "S. pen. kallisto mapped to 3_prime_contigs 19nt kmer.  Kallisto counting")  
+```
+
+## Remove genes not in reference
