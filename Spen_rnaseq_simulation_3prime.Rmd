@@ -715,12 +715,10 @@ RunKallisto(fasta = "spen_threeprime_sim_1/sample_01_renamed.fastq.gz", index = 
 pen.mapped.counts <- GetMappedCounts(dir = "spen_threeprime_sim_1/kallisto19_round3", type="kallisto-transcripts")
 ```
 
-# need to get working below here.
-
 ## _S. pennellii_
 Compare known to mapped counts  
 ```{r compare_spen1_kallisto19, echo=FALSE, results='hide', fig.width=8, fig.height=5}
 pen.count.comparison.1 <- CompareCounts(pen.known.counts, pen.mapped.counts, chrom.separate=FALSE, title = "S. pen. kallisto mapped to 3_prime_contigs 19nt kmer.  Kallisto counting")  
 ```
 
-## Remove genes not in reference
+
