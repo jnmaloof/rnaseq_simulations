@@ -79,7 +79,10 @@ GetMappedCounts <- function(prefix=NA,
     bampath <- file.path(dir,bam)
     mapped_counts <- read.table(pipe(paste("samtools idxstats",bampath)))[,-2]
     colnames(mapped_counts) <- c("ID","count","unmapped")
-    mapped_counts$ID <- substr(mapped_counts$ID,1,16)
+    mapped_counts$ID <- regmatches(
+      mapped_counts$ID,regexpr(
+        "Solyc[[:digit:]]{2}g[[:digit:]]{6}\\.[[:digit:]]",
+        mapped_counts$ID))
     return(mapped_counts)
   }
   if(type=="kallisto-transcripts") {
@@ -87,7 +90,10 @@ GetMappedCounts <- function(prefix=NA,
     mapped_counts <- read.delim(countspath,stringsAsFactors = FALSE)[,c(1,4)]
     head(mapped_counts)
     colnames(mapped_counts) <- c("ID","count")
-    mapped_counts$ID <- substr(mapped_counts$ID,18,33)
+    mapped_counts$ID <- regmatches(
+      mapped_counts$ID,regexpr(
+        "Solyc[[:digit:]]{2}g[[:digit:]]{6}\\.[[:digit:]]",
+        mapped_counts$ID))
     return(mapped_counts)
   }
   stop(paste("Unknown result type:",type))
