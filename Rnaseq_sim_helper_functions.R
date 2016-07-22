@@ -35,6 +35,13 @@ RunKallisto <- function(fasta, index, dir) {
   # setwd(old.dir)
 }
 
+RunBowtie2 <- function(fastq, index, dir) {
+  bampath <- file.path(dir,"bowtie2.bam")
+  system(paste("bowtie2 --local --threads 2 -x",index,
+               "-U",fastq,
+               "| samtools view -Sb - >", bampath))
+}
+
 #Function for retrieving mapped read counts per gene
 GetMappedCounts <- function(prefix=NA,
                             dir=".",

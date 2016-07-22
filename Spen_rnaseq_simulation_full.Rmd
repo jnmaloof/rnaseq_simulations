@@ -795,3 +795,53 @@ CompareCounts(pen.count.comparison.1[pen.count.comparison.1$flag=="none",], chro
 
 # Map with bowtie2
 
+## Installation
+
+```{r install_bowtie2_mac, eval=FALSE}
+brew install bowtie2
+```
+
+## Make bowtie index
+
+```{r bowtie_slyc_index, eval=FALSE}
+bowtie2-build --threads 2 ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa
+```
+
+## Map
+```{r bowtie_map_spen, eval=FALSE}
+system.time(RunBowtie2(fastq = "spen_sim_2/sample_01_renamed.fastq.gz",
+           index = "~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa",
+           dir = "spen_sim_2/"))
+```
+
+Royce with 2 threads
+user    | system | elapsed 
+--------|--------|--------   
+622.348 | 13.297 | 300.922
+
+## Get counts
+```{r get_bowtie_counts_spen}
+pen.mapped.counts <- GetMappedCounts(dir="spen_sim_2/",type = "featureCounts",bam = "bowtie2.bam")
+```
+
+## Compare counts
+
+Compare known to mapped counts  
+```{r compare_spen1_bowtie2, echo=FALSE, results='hide', fig.width=8, fig.height=5}
+pen.count.comparison.1 <- CompareCounts(pen.known.counts, pen.mapped.counts, chrom.separate=FALSE, title = "S. pen. bowtie2 mapped to genomic. FeatureCounts counting")  
+```
+
+## Remove overlapping genes and compare
+Genes with more than one _S.lyc_ or more than one _S.pen_ annotation overlap are removed.
+```{r remove_bad_bowtie2, echo=FALSE}
+pen.count.comparison.1$flag <- "none"
+pen.count.comparison.1 <- within(pen.count.comparison.1,{
+                                 flag[pen.count.comparison.1$lyc.id %in% lyc.lyc.overlaps] <- "lyc.lyc.overlap"
+                                 flag[pen.count.comparison.1$lyc.id %in% pen.pen.overlaps] <- "pen.pen.overlap"
+                                 }
+                                 )
+```
+
+```{r compare_spen1_bowtie2_bad_removed, echo=FALSE, results='hide', fig.width=8, fig.height=5}
+CompareCounts(pen.count.comparison.1[pen.count.comparison.1$flag=="none",], chrom.separate = FALSE, title = "S. pen. bowtie2 mapped to genomic. FeatureCounts counting. Overlapping genes removed.")  
+```
