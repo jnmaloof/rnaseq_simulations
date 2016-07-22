@@ -714,7 +714,10 @@ buildindex("Slyc_Chromo2.5_subread_index","/Users/jmaloof/Sequences/ref_genomes/
 ## Map
 
 ```{r map_subread, eval=F}
-system.time(align("Slyc_Chromo2.5_subread_index","spen_sim_2/sample_01_renamed.fastq.gz", nthreads = 2))
+system.time(align("Slyc_Chromo2.5_subread_index",
+                  "spen_sim_2/sample_01_renamed.fastq.gz", 
+                  output_file=paste("spen_sim_2/sample_01_renamed.fastq.gz","subread","default","BAM",sep="."),
+                  nthreads = 2))
 ```
 On Royce, with 2 threads:
 
@@ -725,7 +728,7 @@ user    | system | elapsed
 ## Get Counts
 
 ```{r get_subread_counts}
-pen.mapped.counts <- GetMappedCounts(dir="spen_sim_2/",type = "featureCounts",bam = "sample_01_renamed.fastq.gz.subread.BAM")
+pen.mapped.counts <- GetMappedCounts(dir="spen_sim_2/",type = "featureCounts",bam = "sample_01_renamed.fastq.gz.subread.default.BAM")
 ```
 
 ## Compare counts
@@ -749,4 +752,46 @@ pen.count.comparison.1 <- within(pen.count.comparison.1,{
 ```{r compare_spen1_subread_bad_removed, echo=FALSE, results='hide', fig.width=8, fig.height=5}
 CompareCounts(pen.count.comparison.1[pen.count.comparison.1$flag=="none",], chrom.separate = FALSE, title = "S. pen. subread mapped to genomic. FeatureCounts counting. Overlapping genes removed.")  
 ```
+
+## map with subread allowing more mismatches (5)
+
+```{r map_subread_MM5, eval=F}
+system.time(align("Slyc_Chromo2.5_subread_index",
+                  "spen_sim_2/sample_01_renamed.fastq.gz", 
+                  output_file=paste("spen_sim_2/sample_01_renamed.fastq.gz","subread","5MM","BAM",sep="."),
+                  nthreads = 2,
+                  maxMismatches = 5))
+```
+On Royce, with 2 threads:
+
+user    | system | elapsed 
+--------|--------|--------   
+315.772 | 29.543 | 221.174 
+```{r get_subread_counts_MM5}
+pen.mapped.counts <- GetMappedCounts(dir="spen_sim_2/",type = "featureCounts",bam = "sample_01_renamed.fastq.gz.subread.5MM.BAM")
+```
+
+## Compare counts
+
+Compare known to mapped counts  
+```{r compare_spen1_subread_MM5, echo=FALSE, results='hide', fig.width=8, fig.height=5}
+pen.count.comparison.1 <- CompareCounts(pen.known.counts, pen.mapped.counts, chrom.separate=FALSE, title = "S. pen. subread mapped to genomic; 5 mismatches. FeatureCounts counting")  
+```
+
+## Remove overlapping genes and compare
+Genes with more than one _S.lyc_ or more than one _S.pen_ annotation overlap are removed.
+```{r remove_bad_subread_MM5, echo=FALSE}
+pen.count.comparison.1$flag <- "none"
+pen.count.comparison.1 <- within(pen.count.comparison.1,{
+                                 flag[pen.count.comparison.1$lyc.id %in% lyc.lyc.overlaps] <- "lyc.lyc.overlap"
+                                 flag[pen.count.comparison.1$lyc.id %in% pen.pen.overlaps] <- "pen.pen.overlap"
+                                 }
+                                 )
+```
+
+```{r compare_spen1_subread_bad_removed_MM5, echo=FALSE, results='hide', fig.width=8, fig.height=5}
+CompareCounts(pen.count.comparison.1[pen.count.comparison.1$flag=="none",], chrom.separate = FALSE, title = "S. pen. subread mapped to genomic. FeatureCounts countingl 5 mismatches. Overlapping genes removed.")  
+```
+
+# Map with bowtie2
 
