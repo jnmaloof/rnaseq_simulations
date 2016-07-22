@@ -1,7 +1,7 @@
 ---
 title: "S. pennellii RNAseq simulations"
 author: "Julin Maloof"
-date: "February 18, 2016"
+date: "July 22, 2016"
 output:
   revealjs::revealjs_presentation:
     reveal_options:
@@ -35,12 +35,13 @@ For example:
 > * Simulate RNASeq reads from _S. pennellii_ and map to _S. lycopersicum_.
 > * Compare actual (simulated) counts to the number of counts that map.
 
-
 > * Can compare different aligners:
-      * stampy
-      * subread
-      * star
-      * bowtie
+      * [stampy](http://www.well.ox.ac.uk/project-stampy)
+      * [subread](http://bioinf.wehi.edu.au/subread/)
+      * [STAR](https://github.com/alexdobin/STAR)
+      * [bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml)
+      * [BWA](http://bio-bwa.sourceforge.net/)
+      * [Kallisto](https://pachterlab.github.io/kallisto/)
 
 > * And different parameters with those aligners.
 
@@ -461,11 +462,11 @@ sort(table(reads.df.map.single.overlap$gene.lyc[reads.df.map.single.overlap$mism
 
 ## 5 examples of genes with mismapping
 
-Solyc02g090930.2.1 (12): Tandem Repeat with Solyc02g090940.2.1
-Solyc04g072480.2.1 (30): Nothing obviously strange
-Solyc03g051930.2.1 (70): PEN gene spans two LYC genes
-Solyc02g079850.2.1 (150): PEN gene spans two LYC genes
-Solyc01g110960.2.1 (497): Much Confusion
+* Solyc02g090930.2.1 (12): Tandem Repeat with Solyc02g090940.2.1
+* Solyc04g072480.2.1 (30): Nothing obviously strange
+* Solyc03g051930.2.1 (70): PEN gene spans two LYC genes
+* Solyc02g079850.2.1 (150): PEN gene spans two LYC genes
+* Solyc01g110960.2.1 (497): Much Confusion
 
 ## 5 examples of genes with zero mapping
 
@@ -473,15 +474,16 @@ Solyc01g110960.2.1 (497): Much Confusion
 pen.count.comparison.1.cutoff300.1.3[pen.count.comparison.1.cutoff300.1.3$count.ratio==Inf,c("lyc.id","count.known","gene.length.ratio.pen.lyc")]
 ```
 
-Solyc01g010050.2: Two overlapping LYC transcripts (note this is fixed when using FeatureCounts from subread)
-Solyc01g060020.2: Multiple overlapping LYC transcripts
-Solyc05g023780.1: Repetitive region
-Solyc08g015710.1: Very small region of homology
-Solyc11g056540.1: BLAT did not find a match
+* Solyc01g010050.2: Two overlapping LYC transcripts (note this is fixed when using FeatureCounts from subread)
+* Solyc01g060020.2: Multiple overlapping LYC transcripts
+* Solyc05g023780.1: Repetitive region
+* Solyc08g015710.1: Very small region of homology
+* Solyc11g056540.1: BLAT did not find a match
 
 ## How to deal with this?
 
 Many of these issues could be dealt with by
+
 1. Eliminating genes with overlapping LYC to LYC or PEN to LYC transcripts. 
 2. Using the BLAT results to eliminate transcripts with poor homology.
 
@@ -689,4 +691,62 @@ legend("bottom",legend=c("Pearson","Spearman"),lty=1:2,col=1:2,bty="n")
 
 So, kmer=19 is the best
 
+# Mapping to genomic with subread
+
+## Installation
+Download [subread](https://sourceforge.net/projects/subread)
+
+untar and unzip it, move binaries to /usr/local/bin (or make symbolic links)
+
+```{r install_subread, eval=FALSE}
+# in R
+install.pacakges("Rsubread")
+```
+
+## Build Indexes
+
+```{r index_subread, eval=F}
+library(Rsubread)
+buildindex("Slyc_Chromo2.5_subread_index","/Users/jmaloof/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa") #note does not do tilde expansion
+# 5.5 minutes
+```
+
+## Map
+
+```{r map_subread, eval=F}
+system.time(align("Slyc_Chromo2.5_subread_index","spen_sim_2/sample_01_renamed.fastq.gz", nthreads = 2))
+```
+On Royce, with 2 threads:
+
+user    | system | elapsed 
+--------|--------|--------   
+310.463 | 32.216 | 211.111 
+
+## Get Counts
+
+```{r get_subread_counts}
+pen.mapped.counts <- GetMappedCounts(dir="spen_sim_2/",type = "featureCounts",bam = "sample_01_renamed.fastq.gz.subread.BAM")
+```
+
+## Compare counts
+
+Compare known to mapped counts  
+```{r compare_spen1_subread, echo=FALSE, results='hide', fig.width=8, fig.height=5}
+pen.count.comparison.1 <- CompareCounts(pen.known.counts, pen.mapped.counts, chrom.separate=FALSE, title = "S. pen. subread mapped to genomic. FeatureCounts counting")  
+```
+
+## Remove overlapping genes and compare
+Genes with more than one _S.lyc_ or more than one _S.pen_ annotation overlap are removed.
+```{r remove_bad_subread, echo=FALSE}
+pen.count.comparison.1$flag <- "none"
+pen.count.comparison.1 <- within(pen.count.comparison.1,{
+                                 flag[pen.count.comparison.1$lyc.id %in% lyc.lyc.overlaps] <- "lyc.lyc.overlap"
+                                 flag[pen.count.comparison.1$lyc.id %in% pen.pen.overlaps] <- "pen.pen.overlap"
+                                 }
+                                 )
+```
+
+```{r compare_spen1_subread_bad_removed, echo=FALSE, results='hide', fig.width=8, fig.height=5}
+CompareCounts(pen.count.comparison.1[pen.count.comparison.1$flag=="none",], chrom.separate = FALSE, title = "S. pen. subread mapped to genomic. FeatureCounts counting. Overlapping genes removed.")  
+```
 
