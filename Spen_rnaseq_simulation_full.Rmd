@@ -863,4 +863,15 @@ stampy.py -g SL2.5 -H SL2.5
 system.time(RunStampy("spen_sim_2/sample_01_renamed.fasta.gz",index = "SL2.5",dir = "spen_sim_2", threads=2))
 ```
 
+Whitney with two threads
+user    | system | elapsed 
+--------|--------|--------   
+9385.250| 96.822 |4424.086
+
+OUCH!  Could be because of disk speed.  Nope; tested on local disk and same result.
+
+Another option is to pre-run BWA
+
+## Map with BWA+stampy
+
 

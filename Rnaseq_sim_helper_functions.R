@@ -47,6 +47,7 @@ RunStampy <- function(fasta, index, dir, threads=2) {
   system(paste("stampy.py -g",index,
                "-h",index,
                "-t",threads,
+               "--inputformat=fasta",
                "-M", fasta,
                "| samtools view -Sb - >", bampath))
 }
