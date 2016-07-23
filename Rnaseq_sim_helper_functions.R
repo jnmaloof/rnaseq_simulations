@@ -42,6 +42,15 @@ RunBowtie2 <- function(fastq, index, dir) {
                "| samtools view -Sb - >", bampath))
 }
 
+RunStampy <- function(fasta, index, dir, threads=2) {
+  bampath <- file.path(dir,"stampy.bam")
+  system(paste("stampy.py -g",index,
+               "-h",index,
+               "-t",threads,
+               "-M", fasta,
+               "| samtools view -Sb - >", bampath))
+}
+
 #Function for retrieving mapped read counts per gene
 GetMappedCounts <- function(prefix=NA,
                             dir=".",

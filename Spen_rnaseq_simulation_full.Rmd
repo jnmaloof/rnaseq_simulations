@@ -845,3 +845,22 @@ pen.count.comparison.1 <- within(pen.count.comparison.1,{
 ```{r compare_spen1_bowtie2_bad_removed, echo=FALSE, results='hide', fig.width=8, fig.height=5}
 CompareCounts(pen.count.comparison.1[pen.count.comparison.1$flag=="none",], chrom.separate = FALSE, title = "S. pen. bowtie2 mapped to genomic. FeatureCounts counting. Overlapping genes removed.")  
 ```
+
+# Map with stampy
+
+## Install stampy
+
+Note: only runs on linux.  Needs python 2.7
+
+## Build index
+```{r, eval=FALSE}
+stampy.py -G SL2.5 ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa
+stampy.py -g SL2.5 -H SL2.5
+```
+
+## Map
+```{r,eval=FALSE}
+system.time(RunStampy("spen_sim_2/sample_01_renamed.fasta.gz",index = "SL2.5",dir = "spen_sim_2", threads=2))
+```
+
+
