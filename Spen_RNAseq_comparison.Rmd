@@ -139,9 +139,10 @@ system("for f in `ls spen_sim_3/sample_*`
           fnewq=`echo $f | sed s/.fasta/_renamed.fastq/`
           sed 's!/!;!' $f > $fnew #allows original gene_names to be kept
           rm $f
-          cat  $fnew | perl ~/bin/fasta_to_fastq.pl  - | gzip > fnewq
+          cat  $fnew | perl ~/bin/fasta_to_fastq.pl  - | gzip > $fnewq.gz
           gzip $fnew
        done")
+
 ```
 
 # Map
@@ -150,8 +151,10 @@ Default parameters for everything but kallisto, which uses kmer=19
 ```{r, eval=FALSE, include=verbose}
 library(snowfall)
 files <- dir(path="./spen_sim_3",pattern="fasta.gz")
+filesq <- dir(path="./spen_sim_3",pattern="fastq.gz")
 sfInit(parallel = T, cpus = max(length(files),12))
 sfSource("Rnaseq_sim_helper_functions.R")
+sfLibrary("Rsubread")
 
 runStar.time <- sfSapply(files,function(f) {
   system.time(RunStar(fasta=f,
@@ -160,15 +163,22 @@ runStar.time <- sfSapply(files,function(f) {
                       n=2))
 })
 
-runKallisto.time <- sfSapply(files,function(f) {
+runKallisto.time <- sfSapply(filesq,function(f) {
   system.time(RunKallisto(fastq=f,
                           index = "ITAG2.4._cds.pen.orthlogsonly.19.kai",
                           dir = file.path("spen_sim_3/kallisto31",paste("kallisto",substr(f,1,9),sep="_")),
-                          prefix=paste("kallisto",substr(f,1,9),sep="_")
-  ))
+                          prefix=paste("kallisto",substr(f,1,9),sep="_"),
+                          threads=2))
 })
 
-                          
+runSubread.time <- sfSapply(filesq,function(f) {
+  system.time(align("Slyc_Chromo2.5_subread_index",
+                    file.path("spen_sim_3",f), 
+                    output_file=paste("spen_sim_3/",substr(f,1,9),"_subread_default.bam",sep=""),
+                    nthreads = 2))
+})
+
+save.image("runmapstats.Rdata")
 
 ```
 
