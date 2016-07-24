@@ -191,8 +191,9 @@ runBWA.time <- sfSapply(files, function(f) {
   system.time(RunBWAaln(f,
           index = "~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.pen.orthologs.only.fasta",
           dir = "spen_sim_3", 
-          prefix = prefix=paste("BWA",substr(f,1,9),sep="_"),
+          prefix=paste("BWA",substr(f,1,9),sep="_"),
           threads=2))
+})
 
 save.image("runmapstats.Rdata")
 

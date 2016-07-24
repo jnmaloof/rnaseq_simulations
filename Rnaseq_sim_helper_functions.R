@@ -46,7 +46,7 @@ RunBWAaln <- function(fastq, index, dir, prefix, threads=2) {
   bampath <- file.path(dir,paste(prefix,"bam",sep="."))
   system(paste("bwa aln -t",threads,
                index,
-               fastq,
+               file.path(dir,fastq),
                ">",file.path(dir,paste(prefix,"sai",sep="."))))
   system(paste("bwa samse",index,
                file.path(dir,paste(prefix,"sai",sep=".")),
