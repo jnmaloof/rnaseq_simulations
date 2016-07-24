@@ -109,6 +109,7 @@ GetMappedCounts <- function(prefix=NA,
     bampath <- file.path(dir,bam)
     mapped_counts <- read.table(pipe(paste("samtools idxstats",bampath)))[,-2]
     colnames(mapped_counts) <- c("ID","count","unmapped")
+    mapped_counts <- mapped_counts[grepl("Sopen.+Solyc",mapped_counts$ID),]
     mapped_counts$ID <- regmatches(
       mapped_counts$ID,regexpr(
         "Solyc[[:digit:]]{2}g[[:digit:]]{6}\\.[[:digit:]]",
