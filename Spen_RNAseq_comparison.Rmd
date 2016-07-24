@@ -180,11 +180,19 @@ nthreads = 2))
 })
 
 runBowtie2.time <- sfSapply(filesq, function(f) {
-  system.time(RunBowtie2(fastq = "f",
-    index = "~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa",
-    dir = "spen_sim_3/",
-    prefix=paste("bowtie2",substr(f,1,9),sep="_"),
-))
+system.time(RunBowtie2(fastq = f,
+index = "~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa",
+dir = "spen_sim_3/",
+prefix=paste("bowtie2",substr(f,1,9),sep="_"),
+threads=2))
+})
+
+runBWA.time <- sfSapply(files, function(f) {
+  system.time(RunBWAaln(f,
+          index = "~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.pen.orthologs.only.fasta",
+          dir = "spen_sim_3", 
+          prefix = prefix=paste("BWA",substr(f,1,9),sep="_"),
+          threads=2))
 
 save.image("runmapstats.Rdata")
 

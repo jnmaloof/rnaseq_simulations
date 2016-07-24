@@ -35,12 +35,27 @@ RunKallisto <- function(fastq, index, dir, prefix, threads=2) {
 
 RunBowtie2 <- function(fastq, index, dir, prefix, threads=2) {
   bampath <- file.path(dir,paste(prefix,"bam",sep="."))
-  system(paste("bowtie2 --local --threads 2 -x",index,
+  system(paste("bowtie2 --local",
+               "--threads", threads,
+               "-x",index,
                "-U",file.path(dir,fastq),
                "| samtools view -Sb - >", bampath))
 }
 
-RunStampy <- function(fasta, index, dir, threads=2) {
+RunBWAaln <- function(fastq, index, dir, prefix, threads=2) {
+  bampath <- file.path(dir,paste(prefix,"bam",sep="."))
+  system(paste("bwa aln -t",threads,
+               index,
+               fastq,
+               ">",file.path(dir,paste(prefix,"sai",sep="."))))
+  system(paste("bwa samse",index,
+               file.path(dir,paste(prefix,"sai",sep=".")),
+               fastq,
+               "| samtools view -Sb - | samtools sort - > ",bampath))
+  system(paste("samtools index",bampath))
+}
+
+RunStampy <- function(fasta, index, dir, prefix, threads=2) {
   bampath <- file.path(dir,"stampy.bam")
   system(paste("stampy.py -g",index,
                "-h",index,
@@ -48,19 +63,6 @@ RunStampy <- function(fasta, index, dir, threads=2) {
                "--inputformat=fasta",
                "-M", fasta,
                "| samtools view -Sb - >", bampath))
-}
-
-RunBWAaln <- function(fastq, index, dir, threads=2) {
-  bampath <- file.path(dir,"bwa.bam")
-  system(paste("bwa aln -t",threads,
-               index,
-               fastq,
-               ">",file.path(dir,"bwa.sai")))
-  system(paste("bwa samse",index,
-               file.path(dir,"bwa.sai"),
-               fastq,
-               "| samtools view -Sb - | samtools sort - > ",bampath))
-  system(paste("samtools index",bampath))
 }
 
 #Function for retrieving mapped read counts per gene
