@@ -30,7 +30,7 @@ RunKallisto <- function(fastq, index, dir, prefix, threads=2) {
                "-t", threads,
                "-i", index, 
                "-o ", dir, 
-               fasta))#, 
+               fastq))#, 
   #"| samtools view -Sb - >", bampath))
   #system(paste("samtools index", bampath))
   # setwd(old.dir)
