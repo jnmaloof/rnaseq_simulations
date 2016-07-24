@@ -33,10 +33,10 @@ RunKallisto <- function(fastq, index, dir, prefix, threads=2) {
   # setwd(old.dir)
 }
 
-RunBowtie2 <- function(fastq, index, dir) {
-  bampath <- file.path(dir,"bowtie2.bam")
+RunBowtie2 <- function(fastq, index, dir, prefix, threads=2) {
+  bampath <- file.path(dir,paste(prefix,"bam",sep="."))
   system(paste("bowtie2 --local --threads 2 -x",index,
-               "-U",fastq,
+               "-U",file.path(dir,fastq),
                "| samtools view -Sb - >", bampath))
 }
 

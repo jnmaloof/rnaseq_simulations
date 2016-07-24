@@ -117,31 +117,31 @@ if(! file.exists("~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.p
 
 Download [fasta to fastq converter](https://code.google.com/archive/p/fasta-to-fastq/downloads)
 
-```{r simulate_pen_3, eval=FALSE}
+```{r simulate_pen_3, eval=FALSE} 4.25 hrs for 6 * 10M reads
 system.time(
-  simulate_experiment(fasta="~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot_orthlogs_only.fa",
-                      outdir="spen_sim_3",
-                      num_reps=6,
-                      readlen=50,
-                      #line below gives ~ 10M reads, scaled by transcript length and following a rexp distribution
-                      reads_per_transcript = round(rexp(n=length(pen.transcripts.small)) *
-                                                     width(pen.transcripts.small) * 
-                                                     1e5/ sum(width(pen.transcripts.small) ))+1,
-                      paired=FALSE,
-                      error_model="illumina5",
-                      bias="rnaf"
-  )
+simulate_experiment(fasta="~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot_orthlogs_only.fa",
+outdir="spen_sim_3",
+num_reps=6,
+readlen=50,
+#line below gives ~ 10M reads, scaled by transcript length and following a rexp distribution
+reads_per_transcript = round(rexp(n=length(pen.transcripts.small)) *
+width(pen.transcripts.small) * 
+1e7/ sum(width(pen.transcripts.small) ))+1,
+paired=FALSE,
+error_model="illumina5",
+bias="rnaf"
+)
 )
 system("for f in `ls spen_sim_3/sample_*`
-       do
-          echo $f
-          fnew=`echo $f | sed s/.fasta/_renamed.fasta/`
-          fnewq=`echo $f | sed s/.fasta/_renamed.fastq/`
-          sed 's!/!;!' $f > $fnew #allows original gene_names to be kept
-          rm $f
-          cat  $fnew | perl ~/bin/fasta_to_fastq.pl  - | gzip > $fnewq.gz
-          gzip $fnew
-       done")
+do
+echo $f
+fnew=`echo $f | sed s/.fasta/_renamed.fasta/`
+fnewq=`echo $f | sed s/.fasta/_renamed.fastq/`
+sed 's!/!;!' $f > $fnew #allows original gene_names to be kept
+rm $f
+cat  $fnew | perl ~/bin/fasta_to_fastq.pl  - | gzip > $fnewq.gz
+gzip $fnew
+done")
 
 ```
 
@@ -154,29 +154,37 @@ files <- dir(path="./spen_sim_3",pattern="fasta.gz")
 filesq <- dir(path="./spen_sim_3",pattern="fastq.gz")
 sfInit(parallel = T, cpus = max(length(files),12))
 sfSource("Rnaseq_sim_helper_functions.R")
-sfLibrary("Rsubread")
+sfLibrary(Rsubread)
 
 runStar.time <- sfSapply(files,function(f) {
-  system.time(RunStar(fasta=f,
-                      prefix = paste("STAR",substr(f,1,9),sep="_"),
-                      param.file = "../STAR.params.whitney.1", dir="spen_sim_3",
-                      n=2))
+system.time(RunStar(fasta=f,
+prefix = paste("STAR",substr(f,1,9),sep="_"),
+param.file = "../STAR.params.whitney.1", 
+dir="spen_sim_3",
+n=2))
 })
 
 runKallisto.time <- sfSapply(filesq,function(f) {
-  system.time(RunKallisto(fastq=f,
-                          index = "ITAG2.4._cds.pen.orthlogsonly.19.kai",
-                          dir = file.path("spen_sim_3/kallisto31",paste("kallisto",substr(f,1,9),sep="_")),
-                          prefix=paste("kallisto",substr(f,1,9),sep="_"),
-                          threads=2))
+system.time(RunKallisto(fastq=f,
+index = "ITAG2.4._cds.pen.orthlogsonly.19.kai",
+dir = "spen_sim_3",
+prefix=paste("kallisto",substr(f,1,9),sep="_"),
+threads=2))
 })
 
 runSubread.time <- sfSapply(filesq,function(f) {
-  system.time(align("Slyc_Chromo2.5_subread_index",
-                    file.path("spen_sim_3",f), 
-                    output_file=paste("spen_sim_3/",substr(f,1,9),"_subread_default.bam",sep=""),
-                    nthreads = 2))
+system.time(align("Slyc_Chromo2.5_subread_index",
+file.path("spen_sim_3",f), 
+output_file=paste("spen_sim_3/",substr(f,1,9),"_subread_default.bam",sep=""),
+nthreads = 2))
 })
+
+runBowtie2.time <- sfSapply(filesq, function(f) {
+  system.time(RunBowtie2(fastq = "f",
+    index = "~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa",
+    dir = "spen_sim_3/",
+    prefix=paste("bowtie2",substr(f,1,9),sep="_"),
+))
 
 save.image("runmapstats.Rdata")
 
