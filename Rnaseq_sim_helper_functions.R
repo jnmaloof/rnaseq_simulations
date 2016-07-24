@@ -21,11 +21,11 @@ RunStar <- function(fasta, prefix, param.file = "../STAR.params.whitney.1", args
   setwd(old.dir)
 }
 
-RunKallisto <- function(fasta, index, dir) {
+RunKallisto <- function(fasta, index, dir, prefix) {
   # old.dir <- getwd()
   # if (!dir.exists(dir)) dir.create(dir,recursive = TRUE) 
   # setwd(dir)
-  bampath <- file.path(dir,"kallisto.bam")
+  bampath <- file.path(dir,paste(prefix,"kallisto.bam",sep="_"))
   system(paste("kallisto quant --single --plaintext -l 250 -s 50 -i ", 
                index, 
                "-o ", dir, 

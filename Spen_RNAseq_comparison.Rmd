@@ -1,0 +1,174 @@
+---
+title: "S. pennellii RNAseq simulations"
+author: "Julin Maloof"
+date: "July 23, 2016"
+output:
+revealjs::revealjs_presentation:
+reveal_options:
+width: 1200
+height: 800
+---
+
+```{r setup, include=FALSE}
+verbose=FALSE
+library(knitr)
+opts_chunk$set(cache.lazy=FALSE)
+opts_chunk$set(cache=TRUE)
+opts_chunk$set(warnings=FALSE)
+opts_chunk$set(messages=FALSE)
+```
+
+```{r load_libraries, cache=FALSE, include=verbose}
+library(polyester)
+library(Biostrings)
+library(ggplot2)
+library(Rsamtools)
+library(rtracklayer)
+library(Rsubread)
+library(R.utils)
+library(plyr)
+setwd("~/Documents/Lab Notebook support/2015/rnaseq_simulations")
+source("Rnaseq_sim_helper_functions.R")
+```
+
+# Introduction
+
+## Overall Question
+
+When mapping RNAseq reads from a heterologous species to a reference genome, what is the best way to perform the mapping?
+
+For example:
+
+> - We have a tomato reference genome
+> - We want to do RNAseq on a variety of wild relatives of tomato for which we have no genome
+
+## Strategy: simulation
+
+> * Use _S. pennellii_ and _S. lycopersium_.  Both are sequenced.  
+> * Simulate RNASeq reads from _S. pennellii_ and map to _S. lycopersicum_.
+> * Compare actual (simulated) counts to the number of counts that map.
+
+> * Can compare different aligners:
+> * Splicing aligners that map RNAseq to genome
+* [stampy](http://www.well.ox.ac.uk/project-stampy)
+* [subread](http://bioinf.wehi.edu.au/subread/)
+* [STAR](https://github.com/alexdobin/STAR)
+* [bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml)
+> * Non-splicing aligners that map to a cDNA reference
+* [BWA](http://bio-bwa.sourceforge.net/)
+* [Kallisto](https://pachterlab.github.io/kallisto/)
+
+> * And different parameters with those aligners.
+
+# Simulate Reads
+
+## Use Polyester
+
+Use the [Polyester package](http://bioconductor.org/packages/release/bioc/vignettes/polyester/inst/doc/polyester.html)  to simulate RNAseq reads.  Also see the [Polyester paper.](http://bioinformatics.oxfordjournals.org/content/31/17/2778)
+
+## Simluate reads (simple version)
+Load Spen and Slyc transcripts  
+Spen CDS fasta can be obtained from [SGN](ftp://ftp.solgenomics.net/genomes/Solanum_pennellii/annotations/)
+slyc fasta is also from [SGN](ftp://ftp.sgn.cornell.edu/genomes/Solanum_lycopersicum/annotation/ITAG2.4_release/)
+
+```{r load_transcripts, eval=TRUE, include=verbose}
+pen.transcripts <-  readDNAStringSet("~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot.fa")
+head(pen.transcripts)
+names(pen.transcripts[1:10])
+lyc.transcripts <- readDNAStringSet("~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.fasta")
+head(lyc.transcripts)
+names(lyc.transcripts)[1:10]
+```
+
+## Reformat names to get rid of description and add Slyc reference
+```{r reformat_gene_names, eval=TRUE}
+orthologs <- read.delim("Ortho_v2.txt",header=FALSE) #From Tony Bolger
+head(orthologs)
+names(orthologs) <- c("PEN","LYC")
+orthologs$PEN <- sub("t","",orthologs$PEN)
+orthologs$PEN.LYC <- paste(orthologs$PEN,orthologs$LYC,sep="_")
+names(pen.transcripts) <- substr(names(pen.transcripts),1,16)
+names(pen.transcripts) <- ifelse(!is.na(match(names(pen.transcripts),orthologs$PEN)),
+                                 orthologs$PEN.LYC[match(names(pen.transcripts),orthologs$PEN)],
+                                 names(pen.transcripts))
+pen.transcripts
+
+names(lyc.transcripts) <- substr(names(lyc.transcripts),1,18)
+names(lyc.transcripts) <- ifelse(!is.na(match(names(lyc.transcripts),orthologs$LYC)),
+                                 orthologs$PEN.LYC[match(names(lyc.transcripts),orthologs$LYC)],
+                                 names(lyc.transcripts))
+pen.gene.length <- as.integer(nchar(pen.transcripts))
+names(pen.gene.length) <- names(pen.transcripts)
+lyc.gene.length <- as.integer(nchar(lyc.transcripts))
+names(lyc.gene.length) <- names(lyc.transcripts)
+```
+
+## Limit ourselves to genes where orthology is clear:
+```{r reduce_data, eval=TRUE, include=verbose}
+pen.transcripts.small <- pen.transcripts[nchar(names(pen.transcripts))>16]
+lyc.transcripts.small <- lyc.transcripts[nchar(names(lyc.transcripts)) > 18]
+
+if(! file.exists("~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot_orthlogs_only.fa")) writeXStringSet(pen.transcripts.small,file="~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot_orthlogs_only.fa")
+
+if(! file.exists("~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.pen.orthologs.only.fasta")) writeXStringSet(lyc.transcripts.small,file="~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.pen.orthologs.only.fasta")
+```
+
+## Simulate PEN RNAseq reads
+
+Download [fasta to fastq converter](https://code.google.com/archive/p/fasta-to-fastq/downloads)
+
+```{r simulate_pen_3, eval=FALSE}
+system.time(
+  simulate_experiment(fasta="~/Sequences/ref_genomes/S.pen/Spenn-v2-cds-annot_orthlogs_only.fa",
+                      outdir="spen_sim_3",
+                      num_reps=6,
+                      readlen=50,
+                      #line below gives ~ 10M reads, scaled by transcript length and following a rexp distribution
+                      reads_per_transcript = round(rexp(n=length(pen.transcripts.small)) *
+                                                     width(pen.transcripts.small) * 
+                                                     1e5/ sum(width(pen.transcripts.small) ))+1,
+                      paired=FALSE,
+                      error_model="illumina5",
+                      bias="rnaf"
+  )
+)
+system("for f in `ls spen_sim_3/sample_*`
+       do
+          echo $f
+          fnew=`echo $f | sed s/.fasta/_renamed.fasta/`
+          fnewq=`echo $f | sed s/.fasta/_renamed.fastq/`
+          sed 's!/!;!' $f > $fnew #allows original gene_names to be kept
+          rm $f
+          cat  $fnew | perl ~/bin/fasta_to_fastq.pl  - | gzip > fnewq
+          gzip $fnew
+       done")
+```
+
+# Map
+
+Default parameters for everything but kallisto, which uses kmer=19
+```{r, eval=FALSE, include=verbose}
+library(snowfall)
+files <- dir(path="./spen_sim_3",pattern="fasta.gz")
+sfInit(parallel = T, cpus = max(length(files),12))
+sfSource("Rnaseq_sim_helper_functions.R")
+
+runStar.time <- sfSapply(files,function(f) {
+  system.time(RunStar(fasta=f,
+                      prefix = paste("STAR",substr(f,1,9),sep="_"),
+                      param.file = "../STAR.params.whitney.1", dir="spen_sim_3",
+                      n=2))
+})
+
+runKallisto.time <- sfSapply(files,function(f) {
+  system.time(RunKallisto(fastq=f,
+                          index = "ITAG2.4._cds.pen.orthlogsonly.19.kai",
+                          dir = file.path("spen_sim_3/kallisto31",paste("kallisto",substr(f,1,9),sep="_")),
+                          prefix=paste("kallisto",substr(f,1,9),sep="_")
+  ))
+})
+
+                          
+
+```
+
