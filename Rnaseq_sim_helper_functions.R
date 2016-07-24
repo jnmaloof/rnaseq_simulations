@@ -52,6 +52,19 @@ RunStampy <- function(fasta, index, dir, threads=2) {
                "| samtools view -Sb - >", bampath))
 }
 
+RunBWAaln <- function(fastq, index, dir, threads=2) {
+  bampath <- file.path(dir,"bwa.bam")
+  system(paste("bwa aln -t",threads,
+               index,
+               fastq,
+               ">",file.path(dir,"bwa.sai")))
+  system(paste("bwa samse",index,
+               file.path(dir,"bwa.sai"),
+               fastq,
+               "| samtools view -Sb - | samtools sort - > ",bampath))
+  system(paste("samtools index",bampath))
+}
+
 #Function for retrieving mapped read counts per gene
 GetMappedCounts <- function(prefix=NA,
                             dir=".",

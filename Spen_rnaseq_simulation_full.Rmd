@@ -820,7 +820,7 @@ user    | system | elapsed
 622.348 | 13.297 | 300.922
 
 ## Get counts
-```{r get_bowtie_counts_spen}
+```{r get_bowtie2_counts_spen}
 pen.mapped.counts <- GetMappedCounts(dir="spen_sim_2/",type = "featureCounts",bam = "bowtie2.bam")
 ```
 
@@ -872,6 +872,76 @@ OUCH!  Could be because of disk speed.  Nope; tested on local disk and same resu
 
 Another option is to pre-run BWA
 
-## Map with BWA+stampy
+## Get counts
+```{r get_stampy_counts_spen}
+pen.mapped.counts <- GetMappedCounts(dir="spen_sim_2/",type = "featureCounts",bam = "stampy.bam")
+```
 
+## Compare counts
 
+Compare known to mapped counts  
+```{r compare_spen1_stampy, echo=FALSE, results='hide', fig.width=8, fig.height=5}
+pen.count.comparison.1 <- CompareCounts(pen.known.counts, pen.mapped.counts, chrom.separate=FALSE, title = "S. pen. stampy mapped to genomic. FeatureCounts counting")  
+```
+
+## Remove overlapping genes and compare
+Genes with more than one _S.lyc_ or more than one _S.pen_ annotation overlap are removed.
+```{r remove_bad_stampy, echo=FALSE}
+pen.count.comparison.1$flag <- "none"
+pen.count.comparison.1 <- within(pen.count.comparison.1,{
+                                 flag[pen.count.comparison.1$lyc.id %in% lyc.lyc.overlaps] <- "lyc.lyc.overlap"
+                                 flag[pen.count.comparison.1$lyc.id %in% pen.pen.overlaps] <- "pen.pen.overlap"
+                                 }
+                                 )
+```
+
+```{r compare_spen1_stampy_bad_removed, echo=FALSE, results='hide', fig.width=8, fig.height=5}
+CompareCounts(pen.count.comparison.1[pen.count.comparison.1$flag=="none",], chrom.separate = FALSE, title = "S. pen. stampy mapped to genomic. FeatureCounts counting. Overlapping genes removed.")  
+```
+
+# Map with BWA
+
+This is mapping against cDNAs rather then to genomic, so comparable to Kallisto
+
+## Build index
+```{r, eval=FALSE, engine='bash'}
+ bwa index ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.pen.orthologs.only.fasta
+```
+
+## Map
+```{r, eval=FALSE}
+system.time(RunBWAaln("spen_sim_2/sample_01_renamed.fasta.gz",
+          index = "~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.pen.orthologs.only.fasta",
+          dir = "spen_sim_2", threads=2))
+```
+Royce with two threads
+user    | system | elapsed 
+--------|--------|--------   
+659.294 | 10.215 | 424.427 
+
+## Get counts
+```{r get_bwa_counts_spen}
+pen.mapped.counts <- GetMappedCounts(dir="spen_sim_2/",type = "transcripts",bam = "bwa.bam")
+```
+
+## Compare counts
+
+Compare known to mapped counts  
+```{r compare_spen1_bwa, echo=FALSE, results='hide', fig.width=8, fig.height=5}
+pen.count.comparison.1 <- CompareCounts(pen.known.counts, pen.mapped.counts, chrom.separate=FALSE, title = "S. pen. bwa mapped to CDS. samtools idxstats counting")  
+```
+
+## Remove overlapping genes and compare
+Genes with more than one _S.lyc_ or more than one _S.pen_ annotation overlap are removed.
+```{r remove_bad_bwa, echo=FALSE}
+pen.count.comparison.1$flag <- "none"
+pen.count.comparison.1 <- within(pen.count.comparison.1,{
+                                 flag[pen.count.comparison.1$lyc.id %in% lyc.lyc.overlaps] <- "lyc.lyc.overlap"
+                                 flag[pen.count.comparison.1$lyc.id %in% pen.pen.overlaps] <- "pen.pen.overlap"
+                                 }
+                                 )
+```
+
+```{r compare_spen1_bwa_bad_removed, echo=FALSE, results='hide', fig.width=8, fig.height=5}
+CompareCounts(pen.count.comparison.1[pen.count.comparison.1$flag=="none",], chrom.separate = FALSE, title = "S. pen. bwa mapped to CDS. samtools idxstats counting. Overlapping genes removed.")  
+```
