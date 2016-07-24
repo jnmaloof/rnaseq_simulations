@@ -50,18 +50,18 @@ RunBWAaln <- function(fastq, index, dir, prefix, threads=2) {
                ">",file.path(dir,paste(prefix,"sai",sep="."))))
   system(paste("bwa samse",index,
                file.path(dir,paste(prefix,"sai",sep=".")),
-               fastq,
+               file.path(dir,fastq),
                "| samtools view -Sb - | samtools sort - > ",bampath))
   system(paste("samtools index",bampath))
 }
 
 RunStampy <- function(fasta, index, dir, prefix, threads=2) {
-  bampath <- file.path(dir,"stampy.bam")
+  bampath <- file.path(dir,paste(prefix,sep="."))
   system(paste("stampy.py -g",index,
                "-h",index,
                "-t",threads,
                "--inputformat=fasta",
-               "-M", fasta,
+               "-M", file.path(dir,fasta),
                "| samtools view -Sb - >", bampath))
 }
 

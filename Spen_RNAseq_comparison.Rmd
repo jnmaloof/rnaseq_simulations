@@ -196,6 +196,13 @@ runBWA.time <- sfSapply(files, function(f) {
                         threads=2))
 })
 
+runStampy.time <- sfSapply(files,function(f) {
+  system.time(RunStampy(f,
+                        index = "SL2.5",
+                        dir = "spen_sim_3", 
+                        prefix=paste("stampy",substr(f,1,9),sep="_"),
+                        threads=2)
+
 save.image("runmapstats.Rdata")
 
 ```
