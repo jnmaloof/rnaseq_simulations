@@ -27,6 +27,7 @@ library(rtracklayer)
 library(Rsubread)
 library(R.utils)
 library(plyr)
+library(magrittr)
 setwd("~/Documents/Lab Notebook support/2015/rnaseq_simulations")
 source("Rnaseq_sim_helper_functions.R")
 ```
@@ -148,15 +149,21 @@ done")
 
 # Map
 
+## setup for mapping
+
 Default parameters for everything but kallisto, which uses kmer=19
 ```{r, eval=FALSE, include=verbose}
 library(snowfall)
 files <- dir(path="./spen_sim_3",pattern="fasta.gz")
 filesq <- dir(path="./spen_sim_3",pattern="fastq.gz")
-sfInit(parallel = T, cpus = max(length(files),12))
+sfInit(parallel = T, cpus = min(length(files),12))
 sfSource("Rnaseq_sim_helper_functions.R")
 sfLibrary(Rsubread)
+sfLibrary(R.utils)
+```
 
+## Star
+```{r, eval=FALSE}
 runStar.time <- sfSapply(files,function(f) {
   system.time(RunStar(fasta=f,
                       prefix = paste("STAR",substr(f,1,9),sep="_"),
@@ -164,7 +171,11 @@ runStar.time <- sfSapply(files,function(f) {
                       dir="spen_sim_3",
                       n=2))
 })
+```
 
+## Kallisto
+
+```{r, eval=FALSE}
 runKallisto.time <- sfSapply(filesq,function(f) {
   system.time(RunKallisto(fastq=f,
                           index = "ITAG2.4._cds.pen.orthlogsonly.19.kai",
@@ -172,14 +183,22 @@ runKallisto.time <- sfSapply(filesq,function(f) {
                           prefix=paste("kallisto",substr(f,1,9),sep="_"),
                           threads=2))
 })
+```
 
+## Subread
+
+```{r, eval=FALSE}
 runSubread.time <- sfSapply(filesq,function(f) {
   system.time(align("Slyc_Chromo2.5_subread_index",
                     file.path("spen_sim_3",f), 
                     output_file=paste("spen_sim_3/subread_default_",substr(f,1,9),".bam",sep=""),
                     nthreads = 2))
 })
+```
 
+## Bowtie2
+
+```{r, eval=FALSE}
 runBowtie2.time <- sfSapply(filesq, function(f) {
   system.time(RunBowtie2(fastq = f,
                          index = "~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa",
@@ -187,7 +206,11 @@ runBowtie2.time <- sfSapply(filesq, function(f) {
                          prefix=paste("bowtie2",substr(f,1,9),sep="_"),
                          threads=2))
 })
+```
 
+## BWA
+
+```{r, eval=FALSE}
 runBWA.time <- sfSapply(files, function(f) {
   system.time(RunBWAaln(f,
                         index = "~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.pen.orthologs.only.fasta",
@@ -195,15 +218,197 @@ runBWA.time <- sfSapply(files, function(f) {
                         prefix=paste("BWA",substr(f,1,9),sep="_"),
                         threads=2))
 })
+```
 
+## Stampy
+
+```{r, eval=FALSE}
 runStampy.time <- sfSapply(files,function(f) {
   system.time(RunStampy(f,
                         index = "SL2.5",
                         dir = "spen_sim_3", 
                         prefix=paste("stampy",substr(f,1,9),sep="_"),
-                        threads=2)
+                        threads=2))
+})
+```
 
+## save it
+
+```{r, eval=FALSE}
 save.image("runmapstats.Rdata")
+```
+
+#get mapped reads (And time...)
+
+## Star counts
+
+```{r, eval=FALSE}
+star.bams <- dir("spen_sim_3",pattern="STAR_.+bam$")
+star.counts.time <- system.time(star.mapped.counts <- sfSapply(star.bams, function(bam) {
+  GetMappedCounts(bam = bam, dir = "spen_sim_3", type="featureCounts")
+}))
+```
+
+## Kallisto counts
+
+```{r, eval=FALSE}
+kallisto.dirs <- dir("spen_sim_3",pattern="kallisto_sample")
+kallisto.counts.time <- system.time(kallisto.mapped.counts <- sfSapply(kallisto.dirs, function(d) {
+  GetMappedCounts(dir = file.path("spen_sim_3",d), type="kallisto-transcripts")
+}))
+```
+
+## Subread counts
+
+```{r, eval=FALSE}
+subread.bams <- dir("spen_sim_3",pattern="subread_.+bam$")
+subread.counts.time <- system.time(subread.mapped.counts <- sfSapply(subread.bams, function(bam) {
+  GetMappedCounts(bam = bam, dir = "spen_sim_3", type="featureCounts")
+}))
+```
+
+## Bowtie2 counts
+
+```{r, eval=FALSE}
+bowtie2.bams <- dir("spen_sim_3",pattern="bowtie2_sample_.+bam$")
+bowtie2.counts.time <- system.time(bowtie.mapped.counts <- sfSapply(bowtie2.bams, function(bam) {
+  GetMappedCounts(bam = bam, dir = "spen_sim_3", type="featureCounts")
+}))
+```
+
+## BWA counts
+
+```{r, eval=FALSE}
+bwa.bams <- dir("spen_sim_3",pattern="BWA_sample_.+bam$")
+bwa.counts.time <- system.time(bwa.mapped.counts <- sfSapply(bwa.bams, function(bam) {
+  GetMappedCounts(dir="spen_sim_3/",type = "transcripts",bam = bam)
+}))
+```
+
+## stampy counts
+
+```{r, eval=FALSE}
+stampy.bams <- dir("spen_sim_3",pattern="stampy_sample_")
+stampy.counts.time <- system.time(stampy.mapped.counts <- sfSapply(stampy.bams, function(bam) {
+  GetMappedCounts(bam = bam, dir = "spen_sim_3", type="featureCounts")
+}))
+
+save.image("counts_and_times.Rdata")
+```
+
+# plot comparisons
+
+## compare run time
+
+```{r, include=verbose}
+program.order <- c("Bowtie2","Stampy","Star","Subread","BWA","Kallisto")
+load("counts_and_times.Rdata")
+run.times <- ls(pattern="run.+time$")
+time.data <- sapply(run.times,function(run) {
+  cbind(mean(get(run)["elapsed",]),
+        sem(get(run)["elapsed",]))}) %>%
+  t() %>% 
+  as.data.frame()
+colnames(time.data) <- c("mean","sem")
+
+time.data$program <- sub("run","",rownames(time.data)) %>% 
+  sub(".time","",.) %>%
+  factor(., levels=program.order)
+
+time.pl <- ggplot(time.data,aes(x=program,y=mean,ymin=mean-sem,ymax=mean+sem))
+time.pl <- time.pl + geom_bar(stat="identity",fill="skyblue")
+time.pl <- time.pl + geom_errorbar(width=.5)
+time.pl + ggtitle("Average run time, 10M reads, 2 CPUs") + ylab("time (sec)")
+```
+
+## compare run + count time
+
+```{r, inculde=verbose,results='hide'}
+count.times <- ls(pattern=".+counts\\.time")
+count.time.data <- sapply(count.times, function(x) get(x)["elapsed"])
+count.time.data #not worth worrying about
+```
+
+
+## compare % reads mapped
+
+```{r get_known_counts,include=verbose, eval=FALSE}
+pen.known.counts.list <- sfLapply(files, function(f) {
+  tmp <- read.table(
+    pipe(paste("./CountGene.py",file.path("spen_sim_3",f))),
+    col.names=c("id","count"),stringsAsFactors = FALSE)
+  tmp$lyc.id <- substr(tmp$id,18,33)
+  tmp })
+
+save(pen.known.counts.list,file="pen.known.counts.Rdata")
+```
+
+```{r known.counts.transform, include=verbose}
+load("pen.known.counts.Rdata")
+
+names(pen.known.counts.list) <- substr(files,1,9)
+
+pen.known.counts.m <- ldply(pen.known.counts.list,.id="sample")
+
+pen.known.counts <- dcast(pen.known.counts.m, id + lyc.id ~ sample, value.var = "count")
 
 ```
+
+```{r get_reads, include=verbose}
+bwa.counts.matrix <- apply(bwa.mapped.counts, 2, function(x) x$count)
+row.names(bwa.counts.matrix) <- bwa.mapped.counts[,1]$ID
+
+bowtie.counts.matrix <- apply(bowtie.mapped.counts,2, function(x) x$count)
+row.names(bowtie.counts.matrix) <- bowtie.mapped.counts[,1]$ID
+bowtie.counts.matrix <- bowtie.counts.matrix[grepl("Solyc",row.names(bowtie.counts.matrix)),] # get rid of rows with "stats" data
+
+kallisto.counts.matrix <- apply(kallisto.mapped.counts,2, function(x) x$count)
+row.names(kallisto.counts.matrix) <- kallisto.mapped.counts[,1]$ID
+kallisto.counts.matrix <- kallisto.counts.matrix[grepl("Solyc",row.names(kallisto.counts.matrix)),] # get rid of rows with "stats" data
+
+stampy.counts.matrix <- apply(stampy.mapped.counts,2, function(x) x$count)
+row.names(stampy.counts.matrix) <- stampy.mapped.counts[,1]$ID
+stampy.counts.matrix <- stampy.counts.matrix[grepl("Solyc",row.names(stampy.counts.matrix)),] # get rid of rows with "stats" data
+
+star.counts.matrix <- apply(star.mapped.counts,2, function(x) x$count)
+row.names(star.counts.matrix) <- star.mapped.counts[,1]$ID
+star.counts.matrix <- star.counts.matrix[grepl("Solyc",row.names(star.counts.matrix)),] # get rid of rows with "stats" data
+
+subread.counts.matrix <- apply(subread.mapped.counts,2, function(x) x$count)
+row.names(subread.counts.matrix) <- subread.mapped.counts[,1]$ID
+subread.counts.matrix <- subread.counts.matrix[grepl("Solyc",row.names(subread.counts.matrix)),] # get rid of rows with "stats" data
+```
+
+```{r compare_percent_mapped}
+total.reads <- tapply(pen.known.counts.m$count,pen.known.counts.m$sample,sum)
+
+counts.objects <- ls(pattern="counts\\.matrix$")
+
+percent.mapped.data <- sapply(counts.objects, function(x) {
+  cbind(mean(colSums(get(x)) / total.reads * 100),
+        sem(colSums(get(x)) / total.reads * 100))}) %>%
+  t() %>%
+  as.data.frame()
+
+colnames(percent.mapped.data) <- c("mean","sem")
+
+percent.mapped.data$program <- factor(sub("\\.counts\\.matrix","",row.names(percent.mapped.data)),
+                                      levels=c("bowtie","stampy","star","subread","bwa","kallisto"),
+                                          labels=c("Bowtie2","Stampy","Star","Subread","BWA","Kallisto"))
+
+percent.map.pl <- ggplot(percent.mapped.data,aes(x=program,y=mean,ymin=mean-sem,ymax=mean+sem))
+percent.map.pl <- percent.map.pl + geom_bar(stat="identity",fill="skyblue")
+percent.map.pl <- percent.map.pl + geom_errorbar(width=.5)
+percent.map.pl + ggtitle("Perecent Mapped Reads") + ylab("Percent") + coord_cartesian(ylim=c(90,100))
+
+```
+
+## compare correlations
+
+## compare mismapped
+
+## compare total number of genes with counts ratio < ... (or do as a step plot)
+
+## IGV
+
 
