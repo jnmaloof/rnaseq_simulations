@@ -28,7 +28,7 @@ RunKallisto <- function(fastq, index, dir, prefix, threads=2) {
   system(paste("kallisto quant --single --plaintext -l 250 -s 50",
                "-t", threads,
                "-i", index, 
-               "-o ", dir, 
+               "-o ", file.path(dir,prefix), 
                file.path(dir,fastq))) #, 
   # setwd(old.dir)
 }
