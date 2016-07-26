@@ -189,3 +189,10 @@ PSL2Granges <- function(file) {
                lyc.ID=lyc.ID)
   )
 }
+
+sem <- function(x, na.rm=TRUE) {
+  if(na.rm) x <- na.omit(x)
+  sd(x) / sqrt(length(x))
+}
+
+  
