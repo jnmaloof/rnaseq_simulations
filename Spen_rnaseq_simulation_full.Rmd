@@ -700,8 +700,8 @@ untar and unzip it, move binaries to /usr/local/bin (or make symbolic links)
 
 ```{r install_subread, eval=FALSE}
 # in R
-install.pacakges("Rsubread")
-```
+source("https://bioconductor.org/biocLite.R")
+biocLite("Rsubread")```
 
 ## Build Indexes
 
@@ -809,9 +809,10 @@ bowtie2-build --threads 2 ~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lyc
 
 ## Map
 ```{r bowtie_map_spen, eval=FALSE}
-system.time(RunBowtie2(fastq = "spen_sim_2/sample_01_renamed.fastq.gz",
+system.time(RunBowtie2(fastq = "sample_01_renamed.fastq.gz",
            index = "~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/S_lycopersicum_chromosomes.2.50.fa",
-           dir = "spen_sim_2/"))
+           dir = "spen_sim_2",
+           prefix="bowtie2"))
 ```
 
 Royce with 2 threads
@@ -860,7 +861,7 @@ stampy.py -g SL2.5 -H SL2.5
 
 ## Map
 ```{r,eval=FALSE}
-system.time(RunStampy("spen_sim_2/sample_01_renamed.fasta.gz",index = "SL2.5",dir = "spen_sim_2", threads=2))
+system.time(RunStampy("sample_01_renamed.fasta.gz",index = "SL2.5",dir = "spen_sim_2", prefix="stampy",threads=2))
 ```
 
 Whitney with two threads
@@ -910,9 +911,11 @@ This is mapping against cDNAs rather then to genomic, so comparable to Kallisto
 
 ## Map
 ```{r, eval=FALSE}
-system.time(RunBWAaln("spen_sim_2/sample_01_renamed.fasta.gz",
+system.time(RunBWAaln("sample_01_renamed.fasta.gz",
           index = "~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_cds.pen.orthologs.only.fasta",
-          dir = "spen_sim_2", threads=2))
+          dir = "spen_sim_2", 
+          prefix="bwa",
+          threads=2))
 ```
 Royce with two threads
 user    | system | elapsed 
