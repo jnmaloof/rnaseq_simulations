@@ -1,12 +1,12 @@
 ---
 title: "S. pennellii RNAseq simulations"
 author: "Julin Maloof"
-date: "July 23, 2016"
+date: "July 26, 2016"
 output:
-revealjs::revealjs_presentation:
-reveal_options:
-width: 1200
-height: 800
+  revealjs::revealjs_presentation:
+    reveal_options:
+      width: 1200
+      height: 800
 ---
 
 ```{r setup, include=FALSE}
@@ -28,6 +28,7 @@ library(Rsubread)
 library(R.utils)
 library(plyr)
 library(magrittr)
+library(reshape2)
 setwd("~/Documents/Lab Notebook support/2015/rnaseq_simulations")
 source("Rnaseq_sim_helper_functions.R")
 ```
@@ -35,7 +36,7 @@ source("Rnaseq_sim_helper_functions.R")
 # Introduction
 
 ## Overall Question
-
+<!-- .slide: style="text-align: left;"> --> 
 When mapping RNAseq reads from a heterologous species to a reference genome, what is the best way to perform the mapping?
 
 For example:
@@ -51,13 +52,13 @@ For example:
 
 > * Can compare different aligners:
 > * Splicing aligners that map RNAseq to genome
-* [stampy](http://www.well.ox.ac.uk/project-stampy)
-* [subread](http://bioinf.wehi.edu.au/subread/)
-* [STAR](https://github.com/alexdobin/STAR)
-* [bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml)
+    * [stampy](http://www.well.ox.ac.uk/project-stampy)
+    * [subread](http://bioinf.wehi.edu.au/subread/)
+    * [STAR](https://github.com/alexdobin/STAR)
+    * [bowtie2](http://bowtie-bio.sourceforge.net/bowtie2/index.shtml)
 > * Non-splicing aligners that map to a cDNA reference
-* [BWA](http://bio-bwa.sourceforge.net/)
-* [Kallisto](https://pachterlab.github.io/kallisto/)
+    * [BWA](http://bio-bwa.sourceforge.net/)
+    * [Kallisto](https://pachterlab.github.io/kallisto/)
 
 > * And different parameters with those aligners.
 
@@ -238,7 +239,7 @@ runStampy.time <- sfSapply(files,function(f) {
 save.image("runmapstats.Rdata")
 ```
 
-#get mapped reads (And time...)
+#get mapped reads
 
 ## Star counts
 
@@ -300,7 +301,7 @@ save.image("counts_and_times.Rdata")
 
 ## compare run time
 
-```{r, include=verbose}
+```{r, echo=FALSE}
 program.order <- c("Bowtie2","Stampy","Star","Subread","BWA","Kallisto")
 load("counts_and_times.Rdata")
 run.times <- ls(pattern="run.+time$")
@@ -318,17 +319,8 @@ time.data$program <- sub("run","",rownames(time.data)) %>%
 time.pl <- ggplot(time.data,aes(x=program,y=mean,ymin=mean-sem,ymax=mean+sem))
 time.pl <- time.pl + geom_bar(stat="identity",fill="skyblue")
 time.pl <- time.pl + geom_errorbar(width=.5)
-time.pl + ggtitle("Average run time, 10M reads, 2 CPUs") + ylab("time (sec)")
+time.pl + ggtitle("Average run time, 10M reads, 2 CPUs") + ylab("time (sec)")  +  theme(axis.text.x  = element_text(size=16),axis.text.y=element_text(size=16))
 ```
-
-## compare run + count time
-
-```{r, inculde=verbose,results='hide'}
-count.times <- ls(pattern=".+counts\\.time")
-count.time.data <- sapply(count.times, function(x) get(x)["elapsed"])
-count.time.data #not worth worrying about
-```
-
 
 ## compare % reads mapped
 
@@ -379,7 +371,7 @@ row.names(subread.counts.matrix) <- subread.mapped.counts[,1]$ID
 subread.counts.matrix <- subread.counts.matrix[grepl("Solyc",row.names(subread.counts.matrix)),] # get rid of rows with "stats" data
 ```
 
-```{r compare_percent_mapped}
+```{r compare_percent_mapped, echo=FALSE}
 total.reads <- tapply(pen.known.counts.m$count,pen.known.counts.m$sample,sum)
 
 counts.objects <- ls(pattern="counts\\.matrix$")
@@ -399,16 +391,155 @@ percent.mapped.data$program <- factor(sub("\\.counts\\.matrix","",row.names(perc
 percent.map.pl <- ggplot(percent.mapped.data,aes(x=program,y=mean,ymin=mean-sem,ymax=mean+sem))
 percent.map.pl <- percent.map.pl + geom_bar(stat="identity",fill="skyblue")
 percent.map.pl <- percent.map.pl + geom_errorbar(width=.5)
-percent.map.pl + ggtitle("Perecent Mapped Reads") + ylab("Percent") + coord_cartesian(ylim=c(90,100))
+percent.map.pl + ggtitle("Perecent Mapped Reads") + ylab("Percent") + coord_cartesian(ylim=c(90,100)) +  theme(axis.text.x  = element_text(size=16),axis.text.y=element_text(size=16))
 
 ```
 
-## compare correlations
 
-## compare mismapped
+## compare correlations all genes (Pearson)
 
-## compare total number of genes with counts ratio < ... (or do as a step plot)
+```{r, echo=FALSE,results='hide'}
+samples <- paste("sample_0",as.character(1:6),sep="")
 
-## IGV
+cor.data <- t(sapply(ls(pattern="counts.matrix$"),function(m) {
+  tmp.m <- get(m)
+
+tmp.df <- data.frame(
+  ID=row.names(tmp.m),
+  tmp.m)
+
+cors <- as.data.frame(t(sapply(samples, function(s) {
+  CompareCounts(known.counts=subset(pen.known.counts,select=c("lyc.id",grep(s,colnames(pen.known.counts),value=TRUE))),
+                mapped.counts=subset(tmp.df,select=c("ID",grep(s,colnames(tmp.df),value=TRUE))),
+                plot = FALSE,return.merged.table = FALSE)
+})))
+c(Pearson.mean=mean(cors$Pearson),
+  Pearson.sem=sem(cors$Pearson),
+  Spearman.mean=mean(cors$Spearman),
+  Spearman.sem=sem(cors$Spearman))
+}
+))
+cor.data <- as.data.frame(cor.data)
+
+cor.data$program <- factor(sub("\\.counts\\.matrix","",row.names(cor.data)),
+                                      levels=c("bowtie","stampy","star","subread","bwa","kallisto"),
+                                          labels=c("Bowtie2","Stampy","Star","Subread","BWA","Kallisto"))
+
+cor.pl <- ggplot(data=cor.data,aes(x=program,y=Pearson.mean,ymin=Pearson.mean+Pearson.sem,ymax=Pearson.mean+Pearson.sem))
+cor.pl <- cor.pl + geom_bar(stat="identity",fill="skyblue")
+cor.pl <- cor.pl + geom_errorbar(width=0.5)
+cor.pl + ylab("mean Pearson correlation") + coord_cartesian(ylim=c(0.9,1)) + ggtitle("Pearson Correlation")  +  theme(axis.text.x  = element_text(size=16),axis.text.y=element_text(size=16))
+```
+
+## compare correlations all genes (Spearman)
+
+```{r, echo=FALSE}
+cor.pl <- ggplot(data=cor.data,aes(x=program,y=Spearman.mean,ymin=Spearman.mean+Spearman.sem,ymax=Spearman.mean+Spearman.sem))
+cor.pl <- cor.pl + geom_bar(stat="identity",fill="skyblue")
+cor.pl <- cor.pl + geom_errorbar(width=0.5)
+cor.pl + ylab("mean Spearman correlation") + coord_cartesian(ylim=c(0.9,1)) + ggtitle("Spearman Correlation")  +  theme(axis.text.x  = element_text(size=16),axis.text.y=element_text(size=16))
+```
+
+
+
+## correlation plots all genes
+```{r, echo=FALSE}
+op <- par(mfrow=c(3,2))
+
+sapply(ls(pattern="counts.matrix$")[c(1,4,5,6,2,3)],function(m) {
+  tmp.m <- get(m)
+  tmp.df <- data.frame(
+    ID=row.names(tmp.m),
+    tmp.m)
+
+  CompareCounts(known.counts=subset(pen.known.counts,select=c("lyc.id",grep("sample_01",colnames(pen.known.counts),value=TRUE))),
+                mapped.counts=subset(tmp.df,select=c("ID",grep("sample_01",colnames(tmp.df),value=TRUE))),
+                plot = TRUE, chrom.separate=FALSE,return.merged.table = FALSE, correlation = FALSE, title = sub("\\.counts\\.matrix","",m))
+})
+par(op)
+```
+
+
+## compare correlations "bad" genes removed
+
+```{r, echo=FALSE}
+#first find genes with overlapping annotation
+lyc.transcript.gr <- import("~/Sequences/ref_genomes/tomato/ITAG2.4_Chromo2.5/ITAG2.4_gene_models.gff3",feature.type="mRNA")
+
+lyc.lyc.overlaps <- findOverlaps(lyc.transcript.gr,lyc.transcript.gr) #all overlaps including self on self
+lyc.lyc.overlaps <- lyc.lyc.overlaps[queryHits(lyc.lyc.overlaps)!=subjectHits(lyc.lyc.overlaps),] #limit to non-self overlaps
+lyc.lyc.overlaps <- substr(unique(mcols(lyc.transcript.gr)[queryHits(lyc.lyc.overlaps),"Name"]),1,16)
+
+pen.transcript.gr <- PSL2Granges(file="penCDS_to_lycGENME.psl")
+pen.pen.overlaps <- findOverlaps(pen.transcript.gr,pen.transcript.gr) #all overlaps including self on self
+
+#need additional step to limit to non-self overlaps because BLAT returns multiple hits in the same region.  Make sure that the overlap is with the same gene
+pen.pen.overlaps <- pen.pen.overlaps[names(pen.transcript.gr)[queryHits(pen.pen.overlaps)]!=names(pen.transcript.gr)[subjectHits(pen.pen.overlaps)]] 
+
+pen.pen.overlaps <- unique(mcols(pen.transcript.gr)[queryHits(pen.pen.overlaps),"lyc.ID"]) 
+```
+
+```{r, echo=FALSE,results='hide'}
+pen.known.counts.no.overlaps <- pen.known.counts[! pen.known.counts$lyc.id %in% c(pen.pen.overlaps,lyc.lyc.overlaps),]
+
+samples <- paste("sample_0",as.character(1:6),sep="")
+
+cor.data <- t(sapply(ls(pattern="counts.matrix$"),function(m) {
+  tmp.m <- get(m)
+
+tmp.df <- data.frame(
+  ID=row.names(tmp.m),
+  tmp.m)
+tmp.df <- tmp.df[! tmp.df$ID %in% c(pen.pen.overlaps,lyc.lyc.overlaps),]
+
+cors <- as.data.frame(t(sapply(samples, function(s) {
+  CompareCounts(known.counts=subset(pen.known.counts.no.overlaps,select=c("lyc.id",grep(s,colnames(pen.known.counts.no.overlaps),value=TRUE))),
+                mapped.counts=subset(tmp.df,select=c("ID",grep(s,colnames(tmp.df),value=TRUE))),
+                plot = FALSE,return.merged.table = FALSE)
+})))
+c(Pearson.mean=mean(cors$Pearson),
+  Pearson.sem=sem(cors$Pearson),
+  Spearman.mean=mean(cors$Spearman),
+  Spearman.sem=sem(cors$Spearman))
+}
+))
+cor.data <- as.data.frame(cor.data)
+
+cor.data$program <- factor(sub("\\.counts\\.matrix","",row.names(cor.data)),
+                                      levels=c("bowtie","stampy","star","subread","bwa","kallisto"),
+                                          labels=c("Bowtie2","Stampy","Star","Subread","BWA","Kallisto"))
+
+cor.pl <- ggplot(data=cor.data,aes(x=program,y=Spearman.mean,ymin=Spearman.mean+Spearman.sem,ymax=Spearman.mean+Spearman.sem))
+cor.pl <- cor.pl + geom_bar(stat="identity",fill="skyblue")
+cor.pl <- cor.pl + geom_errorbar(width=0.5)
+cor.pl + ylab("mean Spearman correlation") + coord_cartesian(ylim=c(0.9,1)) + ggtitle("Spearman Correlation")  +  theme(axis.text.x  = element_text(size=16),axis.text.y=element_text(size=16))
+```
+
+## correlation plots "bad" genes removed
+```{r, echo=FALSE}
+op <- par(mfrow=c(3,2))
+
+sapply(ls(pattern="counts.matrix$")[c(1,4,5,6,2,3)],function(m) {
+  tmp.m <- get(m)
+  tmp.df <- data.frame(
+    ID=row.names(tmp.m),
+    tmp.m)
+  tmp.df <- tmp.df[! tmp.df$ID %in% c(pen.pen.overlaps,lyc.lyc.overlaps),]
+  
+  CompareCounts(known.counts=subset(pen.known.counts.no.overlaps,select=c("lyc.id",grep("sample_01",colnames(pen.known.counts.no.overlaps),value=TRUE))),
+                mapped.counts=subset(tmp.df,select=c("ID",grep("sample_01",colnames(tmp.df),value=TRUE))),
+                plot = TRUE, chrom.separate=FALSE,return.merged.table = FALSE, correlation = FALSE, title = sub("\\.counts\\.matrix","",m))
+})
+par(op)
+```
+
+
+# ToDos
+
+> * Check for correct splicing across exons (IMPORTANT for SNPs)
+> * How many reads are mapped to the wrong gene?
+> * How many genes have a counts ratio < 0.9 or > 1.1
+> * Add more SNPs/inDels
+> * Check for correct splicing across exons (IMPORTANT for SNPs)
 
 

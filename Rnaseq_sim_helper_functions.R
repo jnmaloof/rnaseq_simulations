@@ -133,10 +133,11 @@ GetMappedCounts <- function(prefix=NA,
 
 #Function to compare known and mapped counts
 
-CompareCounts <- function(known.counts,mapped.counts=NA, title= NULL, plot = TRUE, chrom.separate = TRUE, correlation=TRUE, return.merged.table=!is.na(mapped.counts[[1]][1])) {
+CompareCounts <- function(known.counts,mapped.counts=NA, title= NULL, plot = TRUE, chrom.separate = TRUE, correlation=TRUE, return.merged.table=!is.na(mapped.counts[[1]][1]),by.x="lyc.id",by.y="ID") {
   if(!is.na(mapped.counts[[1]][1])) {
-    count.comparison <- merge(known.counts,mapped.counts,by.x="lyc.id",by.y="ID",suffixes=c(".known",".mapped"))
+    count.comparison <- merge(known.counts,mapped.counts,by.x=by.x,by.y=by.y,suffixes=c(".known",".mapped"))
     count.comparison$chrom <- substr(count.comparison$lyc.id,6,7)
+    colnames(count.comparison)[1:3] <- c("id","count.known","count.mapped")
   } else {
     count.comparison <- known.counts
   }
@@ -168,7 +169,9 @@ CompareCounts <- function(known.counts,mapped.counts=NA, title= NULL, plot = TRU
     
     return(count.comparison)
   }
+  if(!return.merged.table & correlation) return(c(Pearson=read.correlation.pearson,Spearman=read.correlation.spearman))
 }
+
 
 PSL2Granges <- function(file) {
   psl.data <- read.delim(file,header=FALSE,skip=5)
