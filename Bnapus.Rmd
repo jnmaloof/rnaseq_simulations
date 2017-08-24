@@ -75,17 +75,17 @@ STAR --runMode genomeGenerate \
 
 Now map reads.  STAR can take fasta reads so will not convert to fastq
 
-below doesn't work on my laptop...move to Whitney...
+below doesn't work on my laptop (out of memory)...move to Whitney...
 
 ```{r, engine='bash',eval=FALSE}
 cd Bnapus_sim
 STAR \
-               --parametersFiles ../STAR.params.royce.Bnapus.1 \
+               --parametersFiles ../STAR.params.whitney.Bnapus.1 \
                --readFilesIn sample_01.fasta.gz \
                --readFilesCommand 'gunzip -c' \
                --outFileNamePrefix STAR_Bnapus_sim1 \
                --twopassMode Basic \
-               --runThreadN 3
+               --runThreadN 10
 ```
 
 
