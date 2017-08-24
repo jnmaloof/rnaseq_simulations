@@ -11,6 +11,8 @@ I will start with simulating RNAseq reads.
 library(polyester)
 library(tidyverse)
 library(Biostrings)
+library(Rsamtools)
+library(rtracklayer)
 source("Rnaseq_sim_helper_functions.R")
 ```
 
@@ -59,6 +61,12 @@ gunzip -cf Bnapus_sim/sample_01.fasta.gz | head -n 20
 ```
 oops I generated paired end reads which I didn't really mean to.
 
+We need to convert the "/" to "_" in the read names so that the transcript source goes with the read ID.
+
+```{r, engine='bash', eval=FALSE}
+gunzip -c sample_01.fasta.gz | sed "s*/*_*" | gzip -c > sample_01_reformat.fasta.gz
+```
+
 ## Map using STAR
 
 First create indexed reference
@@ -77,16 +85,51 @@ Now map reads.  STAR can take fasta reads so will not convert to fastq
 
 below doesn't work on my laptop (out of memory)...move to Whitney...
 
+also had to change the parameters files so that STAR returned an unsorted bam file...it was running out of memory on sort even when I limited it.
+
 ```{r, engine='bash',eval=FALSE}
 cd Bnapus_sim
 STAR \
                --parametersFiles ../STAR.params.whitney.Bnapus.1 \
-               --readFilesIn sample_01.fasta.gz \
+               --readFilesIn sample_01_reformat.fasta.gz \
                --readFilesCommand 'gunzip -c' \
                --outFileNamePrefix STAR_Bnapus_sim1 \
                --twopassMode Basic \
                --runThreadN 10
 ```
 
+sorted and indexing reads
+```{r, engine='bash', eval=FALSE}
+samtools sort -m 15G --reference ~/Sequences/ref_genomes/B_napus/Brassica_napus_v4.1.chromosomes.fa --threads 6 STAR_Bnapus_sim1Aligned.out.bam > STAR_Bnapus_sim1Aligned.out.SORT.bam
+
+samtools index STAR_Bnapus_sim1Aligned.out.SORT.bam
+```
+
+## Compare true and mapped position
+
+For each read we want to know if it went to the correct location.
+
+each read is tagged with tx name
+
+So first we create a genomic ranges object from the GTF.
+Then we step through the BAM file one gene at a time, extract the reads, and ask how many belong it.  At the same time we could keep track of where the mismapping genes came from...
+
+### get gff
+```{r}
+gff <- import("~/Sequences/ref_genomes/B_napus/Brassica_napus.annotation_v5.gff3",feature.type="mRNA")
+gff
+```
+
+### get reads 
+
+(can we do all at once?  looks like)
+```{r}
+reads <- scanBam(file="spen_sim_2/STAR_1Aligned.sortedByCoord.out.bam",
+                 param = ScanBamParam(what=scanBamWhat(),
+                                      tag=c("NH","HI","AS","nM")))[[1]]
+
+```
+
+convert to granges...
 
 
