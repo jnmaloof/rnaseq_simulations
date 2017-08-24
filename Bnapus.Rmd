@@ -1,0 +1,92 @@
+---
+title: "B napus masking"
+output: html_notebook
+---
+
+OK we are having so much trouble with read mapping in B. napus that I want to try to simulate reads and see how many mismap.  These regions could the be masked for SNP calling.
+
+I will start with simulating RNAseq reads.
+
+```{r}
+library(polyester)
+library(tidyverse)
+library(Biostrings)
+source("Rnaseq_sim_helper_functions.R")
+```
+
+## Simulate reads
+
+get cDNA (originally from ftp://bradata:zhl410ivf@brassicadb.org/Brassica_napus/Brassica_napus.annotation_v5.gff3.cds.fa.gz with a modification date of 4/15/15)
+
+take a look...
+```{r}
+cdna <- readDNAStringSet("~/Sequences/ref_genomes/B_napus/Brassica_napus.annotation_v5.gff3.cds.fa.gz")
+cdna
+head(names(cdna))
+```
+
+I can't get "meanmodel" to work, so specify # of transcripts by hand 
+```{r}
+
+totalreads <- 1e8
+readproportions <- width(cdna) / sum(width(cdna))
+reads_per_tx <- totalreads*readproportions
+sum(reads_per_tx)
+mean(reads_per_tx)
+mean(width(cdna)) # so ~ 1 read initiating per base, on average...
+```
+
+Takes about 6.5 hours.  I guess I could have split this up onto multiprocessors and then combined...
+```{r, eval=FALSE}
+
+system.time(
+  simulate_experiment(fasta="~/Sequences/ref_genomes/B_napus/Brassica_napus.annotation_v5.gff3.cds.fa.gz",
+                      outdir="Bnapus_sim",
+                      reads_per_transcript = reads_per_tx,
+                      num_reps=1,
+                      readlen=100,
+                      paired=FALSE,
+                      error_model="illumina5",
+                      bias="rnaf",
+                      gzip=TRUE,
+                      fold_changes = 1
+  )
+)
+```
+take a look
+```{r, engine='bash'}
+gunzip -cf Bnapus_sim/sample_01.fasta.gz | head -n 20
+```
+oops I generated paired end reads which I didn't really mean to.
+
+## Map using STAR
+
+First create indexed reference
+
+```{r, engine='bash', eval=FALSE}
+STAR --runMode genomeGenerate \
+     --runThreadN 3 \
+     --genomeDir /Users/jmaloof/Sequences/ref_genomes/B_napus \
+     --genomeFastaFiles /Users/jmaloof/Sequences/ref_genomes/B_napus/Brassica_napus_v4.1.chromosomes.fa \
+     --sjdbGTFfile /Users/jmaloof/Sequences/ref_genomes/B_napus/Brassica_napus.annotation_v5.gff3 \
+     --sjdbGTFtagExonParentTranscript Parent \
+     --sjdbGTFfeatureExon CDS #not perfect because UTR fields
+```
+
+Now map reads.  STAR can take fasta reads so will not convert to fastq
+
+below doesn't work on my laptop...move to Whitney...
+
+```{r, engine='bash',eval=FALSE}
+cd Bnapus_sim
+STAR \
+               --parametersFiles ../STAR.params.royce.Bnapus.1 \
+               --readFilesIn sample_01.fasta.gz \
+               --readFilesCommand 'gunzip -c' \
+               --outFileNamePrefix STAR_Bnapus_sim1 \
+               --twopassMode Basic \
+               --runThreadN 3
+```
+
+
+
