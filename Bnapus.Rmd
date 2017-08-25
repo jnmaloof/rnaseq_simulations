@@ -123,6 +123,7 @@ gff
 ### get reads 
 
 (can we do all at once?  looks like)
+
 ```{r}
 reads <- scanBam(file="spen_sim_2/STAR_1Aligned.sortedByCoord.out.bam",
                  param = ScanBamParam(what=scanBamWhat(),
@@ -131,5 +132,6 @@ reads <- scanBam(file="spen_sim_2/STAR_1Aligned.sortedByCoord.out.bam",
 ```
 
 convert to granges...
+=======
 
 
