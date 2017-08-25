@@ -13,7 +13,9 @@ library(tidyverse)
 library(Biostrings)
 library(Rsamtools)
 library(rtracklayer)
+library(stringr)
 source("Rnaseq_sim_helper_functions.R")
+library(snowfall)
 ```
 
 ## Simulate reads
@@ -120,18 +122,38 @@ gff <- import("~/Sequences/ref_genomes/B_napus/Brassica_napus.annotation_v5.gff3
 gff
 ```
 
-### get reads 
+### count hits
 
-(can we do all at once?  looks like)
+iterate over chromosomes and then genes in the gff, pulling all reads that map to that gene and then askng how many originated from that gene
 
 ```{r}
-reads <- scanBam(file="spen_sim_2/STAR_1Aligned.sortedByCoord.out.bam",
-                 param = ScanBamParam(what=scanBamWhat(),
-                                      tag=c("NH","HI","AS","nM")))[[1]]
-
+system.time(
+counts.list <- lapply(levels(seqnames(gff)), function(chr) {
+  #go chromosome by chromosome to keep from having memory errors
+  gff.small <- sort(gff[seqnames(gff)==chr])
+  cat(chr,lubridate::now(),"\n",sep="  ")
+  
+  #get a list of all the reads that map to each gene on the chromosome
+  #each list entry corresopnds to one gene
+  read.list <- scanBam(file="Bnapus_sim/STAR_Bnapus_sim1Aligned.out.SORT.bam",
+                   param = ScanBamParam(
+                     what="qname", #grep("seq|qual|mate",scanBamWhat(),invert = TRUE,value = TRUE),
+                     mapqFilter = 100,
+                     #tag=c("NH","HI","AS","nM"),
+                     which=gff.small))
+  
+  #now for each gene count how many reads that map to the gene
+  #actually originated from that gene
+  sapply(1:length(gff.small), function(i) { 
+  c(read_count=length(read.list[[i]]$qname),
+    match_count=sum(str_detect(
+      read.list[[i]]$qname,
+      unlist(gff.small[i]$Alias))))
+  } # function(i)
+  ) # sapply(1:length)
+} # function(chr)
+  ) #sapply(gff.small)
+) # system.time
+save(counts.list,"counts.list.Rdata")
 ```
-
-convert to granges...
-=======
-
 
