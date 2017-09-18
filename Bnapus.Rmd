@@ -14,7 +14,7 @@ library(Biostrings)
 library(Rsamtools)
 library(rtracklayer)
 library(stringr)
-source("Rnaseq_sim_helper_functions.R")
+# source("Rnaseq_sim_helper_functions.R") #not needed?
 library(snowfall)
 ```
 
@@ -126,13 +126,12 @@ gff
 
 iterate over chromosomes and then genes in the gff, pulling all reads that map to that gene and then askng how many originated from that gene
 
-```{r}
+```{r, eval=FALSE}
 system.time(
   counts.list <- lapply(levels(seqnames(gff)), function(chr) {
     #go chromosome by chromosome to keep from having memory errors
     gff.small <- sort(gff[seqnames(gff)==chr])
-    print(chr)
-    print(lubridate::now())
+    cat(chr,"started at",paste0(lubridate::now()),"\n")
     
     #get a list of all the reads that map to each gene on the chromosome
     #each list entry corresopnds to one gene
@@ -159,6 +158,31 @@ system.time(
   } # function(chr)
   ) #sapply(gff.small)
 ) # system.time
+names(counts.list) <- levels(seqnames(gff))
 save(counts.list,file="Bnapus_sim/counts.list.Rdata")
 ```
+
+### plot
+```{r}
+load("Bnapus_sim/counts.list.Rdata")
+str(counts.list)
+```
+
+```{r}
+sapply(counts.list,function(x) min(x[,"percent_correct"],na.rm=TRUE)) #so: worth plotting
+```
+
+```{r}
+pdf("Bnapus_sim/count_plots.pdf",height = 4, width=8)
+for (chr in names(counts.list)) {
+  counts <- as.data.frame(get(chr,counts.list))
+  counts$index <- 1:nrow(counts)
+  pl <- ggplot(counts,aes(x=index,y=percent_correct,size=read_count)) +
+    geom_point() + ylim(0,100)
+    ggtitle(chr)
+  print(pl)
+}
+dev.off()
+```
+
 
