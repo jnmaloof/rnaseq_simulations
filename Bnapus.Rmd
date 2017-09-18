@@ -159,6 +159,6 @@ system.time(
   } # function(chr)
   ) #sapply(gff.small)
 ) # system.time
-save(counts.list,"counts.list.Rdata")
+save(counts.list,file="Bnapus_sim/counts.list.Rdata")
 ```
 
